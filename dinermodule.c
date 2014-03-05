@@ -3,6 +3,63 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+typedef struct SimulationData {
+   int* participants;
+   int  participant_count;
+   int* table_sizes;
+   int  table_size_count;
+   int* weights;
+   int  weight_count;
+   double execution_time;
+} SimulationData;
+
+static int pylist_to_array(PyObject *pylist, int **arr) {
+    PyObject *list = PySequence_Fast(pylist, "expected a sequence");
+    Py_ssize_t count = PySequence_Size(list);
+    *arr = (int*)malloc(sizeof(int) * count);
+
+    for (int i = 0; i < count; i++) {
+        (*arr)[i] = PyInt_AsLong(PyList_GET_ITEM(list, i));
+    }
+
+    return count;
+}
+
+static int pylistlist_to_array(PyObject *list, int **arr) {
+    PyObject *outer_list = PySequence_Fast(list, "expected a sequence");
+    Py_ssize_t count = PySequence_Size(list);
+    *arr = (int*)malloc(sizeof(int) * count * count);
+
+    for (int i = 0; i < count; i++) {
+        PyObject *inner_list = PySequence_Fast(PyList_GET_ITEM(outer_list, i), "expected a sequence");
+        for (int j = 0; j < count; j++) {
+            (*arr)[(i * count) + j] = PyInt_AsLong(PyList_GET_ITEM(inner_list, j));
+        }
+    }
+
+    return count;
+}
+
+static SimulationData* create_simulation_data(PyObject *args) {
+    PyObject *weights, *participants, *table_sizes;
+    SimulationData *data = (SimulationData*)malloc(sizeof(SimulationData));
+
+    if (!PyArg_ParseTuple(args, "dOOO", &data->execution_time, &weights, &participants, &table_sizes))
+        return NULL;
+
+    data->participant_count = pylist_to_array(participants, &data->participants);
+    data->table_size_count = pylist_to_array(table_sizes, &data->table_sizes);
+    data->weight_count = pylistlist_to_array(weights, &data->weights);
+
+    return data;
+}
+
+static void destroy_simulation_data(SimulationData* data) {
+    free(data->participants);
+    free(data->table_sizes);
+    free(data->weights);
+}
+
 static double get_time() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -91,81 +148,46 @@ static double calculate_score(int *participants,
 }
 
 static PyObject *calc_tables(PyObject *self, PyObject *args) {
-    double execution_time, stop_time, best_score_random, score, score_climbing, best_score_climbing;
-    PyObject *weights, *participants, *table_sizes, *outer_list, *inner_list, *participants_list, *table_sizes_list;
-    Py_ssize_t i, j, participant_count, table_sizes_count, weights_size;
-    int *cweights, *cparticipants, *ctable_sizes, *best_participants;
+    double best_score_random, score, score_climbing, best_score_climbing;
     int iteration_count = 0;
-    int participant_array_size;
+    SimulationData *data = create_simulation_data(args);
+    double stop_time = get_time() + data->execution_time;
+    int participant_array_size = data->participant_count * sizeof(int);
+    int *best_participants = (int*)malloc(participant_array_size);
 
-    if (!PyArg_ParseTuple(args, "dOOO", &execution_time, &weights, &participants, &table_sizes))
-        return NULL;
-
-    /* Weights */
-    outer_list = PySequence_Fast(weights, "expected a sequence");
-    weights_size = PySequence_Size(weights);
-    cweights = (int*)malloc(sizeof(int) * weights_size * weights_size);
-
-    for (i = 0; i < weights_size; i++) {
-        inner_list = PyList_GET_ITEM(outer_list, i);
-        for (j = 0; j < weights_size; j++) {
-            cweights[weights_size * i + j] = PyInt_AsLong(PyList_GET_ITEM(inner_list, j));
-        }
-    }
-
-    /* Participants */
-    participants_list = PySequence_Fast(participants, "expected a sequence");
-    participant_count = PySequence_Size(participants);
-    participant_array_size = sizeof(int) * participant_count;
-    cparticipants = (int*)malloc(participant_array_size);
-    for (i = 0; i < participant_count; i++) {
-        cparticipants[i] = PyInt_AsLong(PyList_GET_ITEM(participants_list, i));
-    }
-
-    /* Tables */
-    table_sizes_list = PySequence_Fast(table_sizes, "expected a sequence");
-    table_sizes_count = PySequence_Size(table_sizes);
-    ctable_sizes = (int*)malloc(sizeof(int) * table_sizes_count);
-    for (i = 0; i < table_sizes_count; i++) {
-        ctable_sizes[i] = PyInt_AsLong(PyList_GET_ITEM(table_sizes_list, i));
-    }
-
-    stop_time = get_time() + execution_time;
-
-    best_participants = (int*)malloc(participant_array_size);
-    memcpy(best_participants, cparticipants, participant_array_size);
-    best_score_random = calculate_score(cparticipants, participant_count, ctable_sizes,
-                                        table_sizes_count, cweights, weights_size);
+    memcpy(best_participants, data->participants, participant_array_size);
+    best_score_random = calculate_score(data->participants, data->participant_count, data->table_sizes,
+                                        data->table_size_count, data->weights, data->weight_count);
     best_score_climbing = best_score_random;
     while(get_time() < stop_time) {
-        scramble(cparticipants, participant_count);
-        score = calculate_score(cparticipants, participant_count,
-                                ctable_sizes, table_sizes_count, cweights, weights_size);
+        scramble(data->participants, data->participant_count);
+        score = calculate_score(data->participants, data->participant_count,
+                                data->table_sizes, data->table_size_count,
+                                data->weights, data->weight_count);
 
         if(score < best_score_random) {
             best_score_random = score;
 
             int climbs = 0;
-            while(climb(cparticipants, participant_count, ctable_sizes, table_sizes_count,
-                        cweights, weights_size)) {
+            while(climb(data->participants, data->participant_count, data->table_sizes,
+                        data->table_size_count, data->weights, data->weight_count)) {
                 climbs++;
             }
 
-            score_climbing = calculate_score(cparticipants, participant_count,
-                                             ctable_sizes, table_sizes_count, cweights, weights_size);
-            printf("Steps: %i, score before: %f, score after: %f\n", climbs, best_score_random, score_climbing);
+            score_climbing = calculate_score(data->participants, data->participant_count,
+                                             data->table_sizes, data->table_size_count,
+                                             data->weights, data->weight_count);
+
             if(score_climbing < best_score_climbing) {
                 best_score_climbing = score_climbing;
-                memcpy(best_participants, cparticipants, participant_array_size);
+                memcpy(best_participants, data->participants, participant_array_size);
             }
         }
         iteration_count++;
     }
 
-    free(cparticipants);
-    free(ctable_sizes);
-    free(cweights);
     free(best_participants);
+    destroy_simulation_data(data);
 
     return Py_BuildValue("id", iteration_count, best_score_climbing);
 }
