@@ -97,6 +97,47 @@ static double calculate_table_score(SimulationData *data, int t_offset, int t_in
 }
 
 
+static int climb_greedy(SimulationData *data) {
+  int t1_offset = 0;
+  int best_p1_ix = -1;
+  int best_p2_ix = -1;
+  double best_diff = 0;
+
+  for(int t1_ix=0; t1_ix<data->table_size_count; t1_ix++) {
+     double t1_w1 = calculate_table_score(data, t1_offset, t1_ix);
+     for(int p1_ix=t1_offset; p1_ix<t1_offset+data->table_sizes[t1_ix]; p1_ix++) {
+        int t2_offset = t1_offset + data->table_sizes[t1_ix];
+        for(int t2_ix=t1_ix+1; t2_ix<data->table_size_count; t2_ix++) {
+           double t2_w1 = calculate_table_score(data, t2_offset, t2_ix);
+           for(int p2_ix=t2_offset; p2_ix<t2_offset+data->table_sizes[t2_ix]; p2_ix++) {
+              change_place(p1_ix, p2_ix, data->participants);
+              double t1_w2 = calculate_table_score(data, t1_offset, t1_ix);
+              double t2_w2 = calculate_table_score(data, t2_offset, t2_ix);
+              if((t1_w2 + t2_w2) < (t1_w1 + t2_w1)) {
+                 double diff = (t1_w1 + t2_w1) - (t1_w2 + t2_w2);
+                 if (diff > best_diff) {
+                    best_diff = diff;
+                    best_p1_ix = p1_ix;
+                    best_p2_ix = p2_ix;
+                 }
+              }
+              change_place(p1_ix, p2_ix, data->participants);
+           }
+           t2_offset += data->table_sizes[t2_ix];
+        }
+     }
+     t1_offset += data->table_sizes[t1_ix];
+  }
+
+  if (best_diff > 0) {
+      change_place(best_p1_ix, best_p2_ix, data->participants);
+      return 1;
+  }
+
+  return 0;
+}
+
+
 static int climb(SimulationData *data) {
   int t1_offset = 0;
 
@@ -112,9 +153,8 @@ static int climb(SimulationData *data) {
               double t2_w2 = calculate_table_score(data, t2_offset, t2_ix);
               if((t1_w2 + t2_w2) < (t1_w1 + t2_w1)) {
                  return 1;
-              } else {
-                change_place(p1_ix, p2_ix, data->participants);
               }
+              change_place(p1_ix, p2_ix, data->participants);
            }
            t2_offset += data->table_sizes[t2_ix];
         }
@@ -148,11 +188,12 @@ static PyObject *calc_tables(PyObject *self, PyObject *args) {
     memcpy(best_participants, data->participants, participant_array_size);
     best_score_random = calculate_score(data);
     best_score_climbing = best_score_random;
+    double accumulated_improvement = 0.0;
     while(get_time() < stop_time) {
         scramble(data->participants, data->participant_count);
         score = calculate_score(data);
 
-        if(score < best_score_random) {
+//        if(score < best_score_random) {
             best_score_random = score;
 
             int steps = 0;
@@ -162,18 +203,22 @@ static PyObject *calc_tables(PyObject *self, PyObject *args) {
             }
 
             score_climbing = calculate_score(data);
-            printf("Climbed, before: %f, after: %f, steps: %i, difference: %f, time: %f\n",
-                   best_score_random, score_climbing, steps, score_climbing - best_score_random,
+            double improvement = ((best_score_random - score_climbing)/best_score_random) * 100;
+            accumulated_improvement += improvement;
+            printf("Climbed, before: %f, after: %f, steps: %i, improvement: %f, time: %f\n",
+                   best_score_random, score_climbing, steps,
+                   improvement,
                    get_time() - time_before);
 
             if(score_climbing < best_score_climbing) {
                 best_score_climbing = score_climbing;
                 memcpy(best_participants, data->participants, participant_array_size);
             }
-        }
+//        }
         iteration_count++;
     }
 
+    printf("Average improvement: %f\n", accumulated_improvement/iteration_count);
     free(best_participants);
     destroy_simulation_data(data);
 
