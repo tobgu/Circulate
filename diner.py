@@ -260,7 +260,7 @@ def run():
 #    participants_by_occasion = [range(len(weights))[0:100]]
     participants_by_occasion = [sample(range(len(weights)), 100)]
     tables_by_occasion = [[4, 4, 4, 4, 4, 8, 8, 8, 8, 8, 10, 10, 10, 10]]
-    execution_time = 1.0
+    execution_time = 10.0
     placementsc = []
     placementspy = []
     for x in range(1):
