@@ -29,6 +29,12 @@ groups = {'stockholm': {'tobias', 'erik', 'anders', 'simon', 'stefan'},
 # Perhaps it's better to make a set of all relations with a badness score for each relation. The badness
 #
 
+# TODO:
+# - Test to create random placings for all seatings
+# - Modify the weight array real time as the seatings are changed
+# - Evalutate the seatings as a whole again
+
+
 def calc_weight_matrix():
     eater_count = 200
     eaters = ['eater %s' % i for i in range(eater_count)]

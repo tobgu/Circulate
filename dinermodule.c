@@ -13,6 +13,7 @@ typedef struct SimulationData {
    double execution_time;
 } SimulationData;
 
+
 static int pylist_to_array(PyObject *pylist, int **arr) {
     PyObject *list = PySequence_Fast(pylist, "expected a sequence");
     Py_ssize_t count = PySequence_Size(list);
@@ -44,8 +45,9 @@ static SimulationData* create_simulation_data(PyObject *args) {
     PyObject *weights, *participants, *table_sizes;
     SimulationData *data = (SimulationData*)malloc(sizeof(SimulationData));
 
-    if (!PyArg_ParseTuple(args, "dOOO", &data->execution_time, &weights, &participants, &table_sizes))
+    if (!PyArg_ParseTuple(args, "dOOO", &data->execution_time, &weights, &participants, &table_sizes)) {
         return NULL;
+    }
 
     data->participant_count = pylist_to_array(participants, &data->participants);
     data->table_size_count = pylist_to_array(table_sizes, &data->table_sizes);
@@ -54,12 +56,94 @@ static SimulationData* create_simulation_data(PyObject *args) {
     return data;
 }
 
+
 static void destroy_simulation_data(SimulationData *data) {
     free(data->participants);
     free(data->table_sizes);
     free(data->weights);
     free(data);
 }
+
+typedef struct Occasion {
+   int* participants;
+   Py_ssize_t  participant_count;
+   int* table_sizes;
+   Py_ssize_t  table_size_count;
+} Occasion;
+
+static void destroy_occasions(Occasion *occasions, int occasion_count) {
+    for(int i=0; i<occasion_count; i++) {
+        free(occasions[i].participants);
+        free(occasions[i].table_sizes);
+    }
+
+    free(occasions);
+}
+
+static Py_ssize_t create_occasions(PyObject *participants_per_occasion,
+                            PyObject *table_sizes_per_occasion,
+                            Occasion **occasions) {
+    PyObject *outer_participants = PySequence_Fast(participants_per_occasion, "expected a sequence");
+    PyObject *outer_table_sizes = PySequence_Fast(table_sizes_per_occasion, "expected a sequence");
+
+    Py_ssize_t occasion_count = PySequence_Size(participants_per_occasion);
+    assert(occasion_count == PySequence_Size(table_sizes_per_occasion));
+    *occasions = (Occasion*)malloc(sizeof(Occasion) * occasion_count);
+
+    for (Py_ssize_t i = 0; i < occasion_count; i++) {
+        (*occasions)[i].participant_count = pylist_to_array(PyList_GET_ITEM(outer_participants, i),
+                                                           &((*occasions)[i].participants));
+
+        (*occasions)[i].table_size_count = pylist_to_array(PyList_GET_ITEM(outer_table_sizes, i),
+                                                           &((*occasions)[i].table_sizes));
+    }
+
+    return occasion_count;
+}
+
+typedef struct Conference {
+   Occasion *occasions;
+   Py_ssize_t occasion_count;
+   int *weights;
+   Py_ssize_t  weight_count;
+   int  seating_badness;
+   double execution_time;
+} Conference;
+
+static void destroy_conference(Conference *conference) {
+    destroy_occasions(conference->occasions, conference->occasion_count);
+    free(conference->weights);
+    free(conference);
+}
+
+static Conference* create_conference(PyObject *args) {
+    PyObject *weights, *participants_per_occasion, *table_sizes_per_occasion;
+    Conference *conference = (Conference*)malloc(sizeof(Conference));
+
+
+    if (!PyArg_ParseTuple(args, "diOOO", &conference->execution_time,
+                          &conference->seating_badness,
+                          &weights, &participants_per_occasion,
+                          &table_sizes_per_occasion)) {
+        return NULL;
+    }
+
+    conference->occasion_count = create_occasions(participants_per_occasion, table_sizes_per_occasion,
+                                                  &conference->occasions);
+    conference->weight_count = pylistlist_to_array(weights, &conference->weights);
+
+    return conference;
+}
+
+/*
+static int* scramble_conference(Conference *conference) {
+    for(int i=0; i<conference->occasion_count; i++) {
+        scramble(conference->participant, conference->participant_count)
+    }
+
+
+}
+*/
 
 static double get_time(void) {
     struct timeval tv;
@@ -177,6 +261,28 @@ static double calculate_score(SimulationData *data) {
     return result;
 }
 
+static PyObject *calc_conference(PyObject *self, PyObject *args) {
+    Conference *conference = create_conference(args);
+/*
+- Create conference "object"
+  - Weight matrix
+  - Badness matrix, the same size as the weight matrix
+  - X * occasion
+    occasion: participant list, table list
+
+ Repeat:
+  - Place all participants at random per occasion
+  - Calculate the badness table
+  - Hill climb the first occasion to find the best placings with the current badness table
+  - Hill climb the next occasion...
+  - Then start over with the first occasion again, repeat until no more hill climbing is
+    possible for any occasion
+
+*/
+    destroy_conference(conference);
+    return Py_BuildValue("i", 3);
+}
+
 static PyObject *calc_tables(PyObject *self, PyObject *args) {
     double best_score_random, score, score_climbing, best_score_climbing;
     int iteration_count = 0;
@@ -227,6 +333,7 @@ static PyObject *calc_tables(PyObject *self, PyObject *args) {
 
 static PyMethodDef DinerMethods[] = {
     {"calc_tables",  calc_tables, METH_VARARGS, "Places people by tables"},
+    {"calc_conference",  calc_conference, METH_VARARGS, "Places people by tables optimized for the whole conference"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
