@@ -135,16 +135,6 @@ static Conference* create_conference(PyObject *args) {
     return conference;
 }
 
-/*
-static int* scramble_conference(Conference *conference) {
-    for(int i=0; i<conference->occasion_count; i++) {
-        scramble(conference->participant, conference->participant_count)
-    }
-
-
-}
-*/
-
 static double get_time(void) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -159,6 +149,49 @@ static void scramble(int *buf, int length) {
         buf[i] = buf[from_index];
         buf[from_index] = temp;
     }
+}
+
+static void update_relations(int *relations, int dimension_size, Occasion *occasion) {
+    int offset = 0;
+    for(int i=0; i<occasion->table_size_count; i++) {
+        printf("Table %i\n", i);
+        for(int j=0; j<occasion->table_sizes[i]; j++) {
+            for(int k=0; k<j; k++) {
+                printf("Relation: %i - %i\n", occasion->participants[offset+j], occasion->participants[offset+k]);
+                relations[(occasion->participants[offset+j] * dimension_size) +
+                          occasion->participants[offset+k]]++;
+
+                /* Relations are symmetrical */
+                relations[(occasion->participants[offset+k] * dimension_size) +
+                          occasion->participants[offset+j]]++;
+            }
+        }
+
+        offset += occasion->table_sizes[i];
+    }
+}
+
+static int* create_relation_matrix(Conference *conference) {
+    size_t size = conference->weight_count * conference->weight_count * sizeof(int);
+    int *relations = (int*)malloc(size);
+    memset((void*)relations, 0, size);
+    return relations;
+}
+
+static int* scramble_conference(Conference *conference) {
+    /* The relations matrix contains a count of the number of times that each person
+       has been sitting at the same table as another person at the conference.
+       It is really just a redundant (but easier to work with when running optimizations)
+       representation of the tables and their participants. */
+
+    int *relations = create_relation_matrix(conference);
+    for(int i=0; i<conference->occasion_count; i++) {
+        printf("Scrambling occasion %i\n", i);
+        scramble(conference->occasions[i].participants, conference->occasions[i].participant_count);
+        update_relations(relations, conference->weight_count, &(conference->occasions[i]));
+    }
+
+    return relations;
 }
 
 static void change_place(int ix1, int ix2, int *arr) {
@@ -255,7 +288,69 @@ static double calculate_score(SimulationData *data) {
 
     for(int i=0; i<data->table_size_count; i++) {
         result += calculate_table_score(data, pos, i);
-        pos += data->table_sizes[i];;
+        pos += data->table_sizes[i];
+    }
+
+    return result;
+}
+
+static PyObject *array_to_pylist(int *arr, int length) {
+    PyObject *list = PyTuple_New(length);
+    for(int i=0; i<length; i++) {
+        PyTuple_SetItem(list, i, PyInt_FromLong(arr[i]));
+    }
+
+    return list;
+}
+
+static PyObject *conference_to_pylist(int** participants, Conference *conference) {
+    PyObject *list = PyTuple_New(conference->occasion_count);
+    for(int i=0; i<conference->occasion_count; i++) {
+        PyTuple_SetItem(list, i, array_to_pylist(participants[i],
+                                                 conference->occasions[i].participant_count));
+    }
+
+    return list;
+}
+
+
+static void optimize_conference(Conference *conference, int *relations) {
+/*
+Loop over all tables at all occasions
+ - Find the best move (if it exists), moves can only be made within a occasion but is measured
+   against all other possible moves during the whole conference.
+   Test occurence_count * n2/2 moves. More or less like climb_greedy but over the whole conference.
+
+Make the best move, if no move exist then finish.
+
+*/
+
+}
+
+static unsigned long int calculate_conference_score(Conference *conference, int *relations) {
+    unsigned long int score = 0;
+    for(int i=0; i < (conference->weight_count * conference->weight_count); i++) {
+        if(relations[i] > 1) {
+            score += conference->weights[i] * (relations[i] - 1) * conference->seating_badness;
+        } else if(relations[i] == 1) {
+            score += conference->weights[i];
+        }
+    }
+
+    return score;
+}
+
+static void copy_participants(int **participants, Conference *conference) {
+    for(int i = 0; i < conference->occasion_count; i++) {
+        memcpy(participants[i], conference->occasions[i].participants,
+               conference->occasions[i].participant_count * sizeof(int));
+    }
+}
+
+static int **allocate_seating_result(Conference *conference) {
+    int** result = (int**)malloc(conference->occasion_count * sizeof(int*));
+    for(int i = 0; i < conference->occasion_count; i++) {
+        result[i] = (int*)malloc(conference->occasions[i].participant_count * sizeof(int));
     }
 
     return result;
@@ -263,6 +358,24 @@ static double calculate_score(SimulationData *data) {
 
 static PyObject *calc_conference(PyObject *self, PyObject *args) {
     Conference *conference = create_conference(args);
+
+    double stop_time = get_time() + conference->execution_time;
+    unsigned long int best_score = 0xFFFFFFFFFFFFFFFF;
+    int *relations = NULL;
+    int *best_relations = create_relation_matrix(conference);
+    size_t relation_size = conference->weight_count * conference->weight_count * sizeof(int);
+    int **best_seatings = allocate_seating_result(conference);
+    while(get_time() < stop_time) {
+        relations = scramble_conference(conference);
+        optimize_conference(conference, relations);
+
+        unsigned long int conference_score = calculate_conference_score(conference, relations);
+        if(conference_score < best_score) {
+            best_score = conference_score;
+            memcpy(best_relations, relations, relation_size);
+            copy_participants(best_seatings, conference);
+        }
+    }
 /*
 - Create conference "object"
   - Weight matrix
@@ -279,8 +392,17 @@ static PyObject *calc_conference(PyObject *self, PyObject *args) {
     possible for any occasion
 
 */
+
+    printf("\n");
+
+    PyObject *relation_list = array_to_pylist(best_relations,
+                                              conference->weight_count * conference->weight_count);
+    PyObject *participants_list = conference_to_pylist(best_seatings, conference);
+
+    free(relations);
     destroy_conference(conference);
-    return Py_BuildValue("i", 3);
+
+    return Py_BuildValue("iOO", best_score, participants_list, relation_list);
 }
 
 static PyObject *calc_tables(PyObject *self, PyObject *args) {
