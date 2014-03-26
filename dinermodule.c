@@ -489,6 +489,7 @@ Make the best move, if no move exist then finish.
   }
 }
 
+
 static unsigned long int calculate_conference_score(Conference *conference, int *relations) {
     unsigned long int score = 0;
     for(int i=0; i < (conference->weight_count * conference->weight_count); i++) {

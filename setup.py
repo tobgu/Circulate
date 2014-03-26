@@ -15,4 +15,4 @@ module1 = Extension('dinerc', sources=['dinermodule.c'],
 setup(name = 'Temp ',
       version = '0.1',
       description = 'Test',
-      ext_modules = [module1])
+      ext_modules = [module1], requires=['flask', 'werkzeug'])
