@@ -313,18 +313,13 @@ static PyObject *conference_to_pylist(int** participants, Conference *conference
     return list;
 }
 
-#define DEBUG_PRINT(x) if(print) {printf x;}
-
-
 static int table_weight_for_participant(int p_ix, int *t, int t_size,
-                                        int *relations, Conference *conference, int print) {
+                                        int *relations, Conference *conference) {
     unsigned long int score = 0;
     int *weight_array = &conference->weights[conference->weight_count * t[p_ix]];
     int *relations_array = &relations[conference->weight_count * t[p_ix]];
 
-    DEBUG_PRINT(("\nCurrent weight: "))
     for(int i=0; i < t_size; i++) {
-        DEBUG_PRINT(("%i/%i ", weight_array[t[i]], relations_array[t[i]]))
         if(relations_array[t[i]] > 0) {
             score += weight_array[t[i]] << (relations_array[t[i]] - 1);
         }
@@ -336,7 +331,7 @@ static int table_weight_for_participant(int p_ix, int *t, int t_size,
 
 static int calculate_new_score(int p1_ix, int *t1, int t1_size,
                                int p2_ix, int *t2, int t2_size,
-                               int *relations, Conference *conference, int print) {
+                               int *relations, Conference *conference) {
     int p1_score_t1 = 0;
     int p2_score_t1 = 0;
 
@@ -383,17 +378,13 @@ static int calculate_new_score(int p1_ix, int *t1, int t1_size,
 
 static int calculate_switch(int p1_ix, int *t1, int t1_size,
                             int p2_ix, int *t2, int t2_size,
-                            int *relations, Conference *conference, int print) {
+                            int *relations, Conference *conference) {
     /* Should probably merge the following function calls into the below function to avoid
        excessive looping... */
-//    printf("Before current\n");
-    int w1_curr = table_weight_for_participant(p1_ix, t1, t1_size, relations, conference, print);
-    int w2_curr = table_weight_for_participant(p2_ix, t2, t2_size, relations, conference, print);
+    int w1_curr = table_weight_for_participant(p1_ix, t1, t1_size, relations, conference);
+    int w2_curr = table_weight_for_participant(p2_ix, t2, t2_size, relations, conference);
 
-//    printf("Before new\n");
-    int score_new = calculate_new_score(p1_ix, t1, t1_size, p2_ix, t2, t2_size, relations, conference, print);
-
-    DEBUG_PRINT(("w1_curr=%i, w2_curr=%i, score_new=%i\n", w1_curr, w2_curr, score_new));
+    int score_new = calculate_new_score(p1_ix, t1, t1_size, p2_ix, t2, t2_size, relations, conference);
 
     return score_new - (w1_curr + w2_curr);
 }
@@ -407,6 +398,7 @@ static void perform_switch(int ix1, int ix2, int *participants, int t1_offset, i
 
     for(int i=t1_offset; i<t1_offset+t1_size; i++) {
         if(i != ix1) {
+            /* TODO: Introduce variable for other participant */
             relations[(p1 * relation_count) + participants[i]]--;
             relations[(participants[i] * relation_count) + p1]--;
 
@@ -429,22 +421,20 @@ static void perform_switch(int ix1, int ix2, int *participants, int t1_offset, i
     participants[ix1] = p2;
 }
 
-static void optimize_conference(Conference *conference, int *relations) {
+static long int optimize_conference(Conference *conference, int *relations) {
 /*
 Loop over all tables at all occasions
  - Find the best move (if it exists), moves can only be made within a occasion but is measured
    against all other possible moves during the whole conference.
    Test occurence_count * n2/2 moves. More or less like climb_greedy but over the whole conference.
-
-Make the best move, if no move exist then finish.
-
+ - Make the best move, if no move exist then finish.
 */
   int best_occasion_ix = 0;
   int best_p1_ix = 0;
   int best_p2_ix = 0;
   int best_t1_offset = 0, best_t2_offset = 0, best_t1_size = 0, best_t2_size = 0;
   int best_diff = 0;
-  int count = 0;
+  long int tests_count = 0; /* Statistics */
 
   while(1) {
       for(int o_ix=0; o_ix<conference->occasion_count; o_ix++) {
@@ -455,24 +445,11 @@ Make the best move, if no move exist then finish.
                int t2_offset = t1_offset + data.table_sizes[t1_ix];
                for(int t2_ix=t1_ix+1; t2_ix<data.table_size_count; t2_ix++) {
                   for(int p2_ix=t2_offset; p2_ix<t2_offset+data.table_sizes[t2_ix]; p2_ix++) {
-                     /* TODO: Need to keep track of the table mates of the two persons that
-                        switch place and also send the weight matrix in so that the weights
-                        can be taken into account. */
-//                     printf("calculating diff for t1_ix: %i, t1_offset: %i, t1_len: %i, p1_ix: %i, t2_ix: %i, t2_offset: %i, t2_len: %i, p2_ix: %i\n",
-//                            t1_ix, t1_offset, data.table_sizes[t1_ix], p1_ix, t2_ix, t2_offset, data.table_sizes[t2_ix], p2_ix);
                      int diff = calculate_switch(p1_ix - t1_offset, &(data.participants[t1_offset]), data.table_sizes[t1_ix],
                                                  p2_ix - t2_offset, &(data.participants[t2_offset]), data.table_sizes[t2_ix],
-                                                 relations, conference, 0);
-
-//                     printf("Done!\n");
+                                                 relations, conference);
 
                      if (diff < best_diff) {
-//                        calculate_switch(p1_ix - t1_offset, &(data.participants[t1_offset]), data.table_sizes[t1_ix],
-//                         p2_ix - t2_offset, &(data.participants[t2_offset]), data.table_sizes[t2_ix],
-//                         relations, conference, 1);
-
-//                        printf("Found better diff %i < %i, o_ox=%i, p1_ix=%i, p2_ix=%i, t1_offset=%i, t2_offset=%i, t1_size=%i, t2_size=%i!\n",
-//                         diff, best_diff, o_ix, p1_ix, p2_ix, t1_offset, t2_offset, data.table_sizes[t1_ix], data.table_sizes[t2_ix]);
                         best_diff = diff;
                         best_occasion_ix = o_ix;
                         best_p1_ix = p1_ix;
@@ -482,6 +459,8 @@ Make the best move, if no move exist then finish.
                         best_t1_size = data.table_sizes[t1_ix];
                         best_t2_size = data.table_sizes[t2_ix];
                      }
+
+                     tests_count++;
                   }
                   t2_offset += data.table_sizes[t2_ix];
                }
@@ -490,20 +469,12 @@ Make the best move, if no move exist then finish.
          }
       }
 
-      count++;
-      if (count > 10000) {
-          printf("Breaking long loop\n");
-          return;
-      }
-
       if (best_diff < 0) {
-          printf("Switching place %i, %i!\n", best_p1_ix, best_p2_ix);
           perform_switch(best_p1_ix, best_p2_ix, conference->occasions[best_occasion_ix].participants,
                          best_t1_offset, best_t2_offset, best_t1_size, best_t2_size, relations, conference->weight_count);
           best_diff = 0;
       } else {
-//          printf("Not switching place!\n");
-          return;
+          return tests_count;
       }
   }
 }
@@ -546,19 +517,16 @@ static void destroy_seating_result(int** result, Conference *conference) {
 
 static PyObject *calc_conference(PyObject *self, PyObject *args) {
     Conference *conference = create_conference(args);
-
-    double stop_time = get_time() + conference->execution_time;
     unsigned long int best_score = 0xFFFFFFFFFFFFFFFF;
     int *relations = NULL;
     int *best_relations = create_relation_matrix(conference);
     size_t relation_size = conference->weight_count * conference->weight_count * sizeof(int);
     int **best_seatings = allocate_seating_result(conference);
+    long int tests_count = 0;
+    double stop_time = get_time() + conference->execution_time;
     while(get_time() < stop_time) {
-        printf("Scrambling\n");
         relations = scramble_conference(conference);
-        printf("Opimizing\n");
-        optimize_conference(conference, relations);
-        printf("Looping\n");
+        tests_count += optimize_conference(conference, relations);
         unsigned long int conference_score = calculate_conference_score(conference, relations);
         if(conference_score < best_score) {
             best_score = conference_score;
@@ -566,34 +534,15 @@ static PyObject *calc_conference(PyObject *self, PyObject *args) {
             copy_participants(best_seatings, conference);
         }
     }
-/*
-- Create conference "object"
-  - Weight matrix
-  - Badness matrix, the same size as the weight matrix
-  - X * occasion
-    occasion: participant list, table list
 
- Repeat:
-  - Place all participants at random per occasion
-  - Calculate the badness table
-  - Hill climb the first occasion to find the best placings with the current badness table
-  - Hill climb the next occasion...
-  - Then start over with the first occasion again, repeat until no more hill climbing is
-    possible for any occasion
-
-*/
-
-    printf("\n");
-
-    PyObject *relation_list = array_to_pylist(best_relations,
-                                              conference->weight_count * conference->weight_count);
+    PyObject *relation_list = array_to_pylist(best_relations, conference->weight_count * conference->weight_count);
     PyObject *participants_list = conference_to_pylist(best_seatings, conference);
 
     free(relations);
     destroy_seating_result(best_seatings, conference);
     destroy_conference(conference);
 
-    return Py_BuildValue("iOO", best_score, participants_list, relation_list);
+    return Py_BuildValue("ilOO", best_score, tests_count, participants_list, relation_list);
 }
 
 static PyObject *calc_tables(PyObject *self, PyObject *args) {

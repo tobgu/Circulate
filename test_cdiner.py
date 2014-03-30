@@ -1,7 +1,8 @@
 from collections import OrderedDict
 from dinerc import calc_tables, calc_conference
+from diner import group_seatings
 from xlsm_io import read_conference_data, write_seating
-
+from time import time
 
 def print_relations(relations, dimension_size):
     for x in range(0, dimension_size*dimension_size, dimension_size):
@@ -46,16 +47,26 @@ def print_seatings(conference):
 #   for intermediate seating manipulation
 
 def large_test():
+    start = time()
     print "Reading conference data"
     conference = read_conference_data()
-    print "Done"
-    score, participants, relations = calc_conference(1.0, 5, conference['weight_matrix'],
-                                                     conference['guests'], conference['table_sizes'])
-    print "Calc conference: %s, %s" % (score, participants)
+    conference_read = time()
+    print "Done, time=%s" % (conference_read - start)
+
+    score, tests_count, participants, relations = calc_conference(10.0, 5, conference['weight_matrix'],
+                                                                  conference['guests'], conference['table_sizes'])
+    conference_optimized = time()
+    print "Calc conference: time=%s, score=%s, tests_count=%s, participants=%s" % (conference_optimized - conference_read,
+                                                                                   score,
+                                                                                   tests_count,
+                                                                                   participants)
 
     group_seatings(conference, participants)
-#    print_seatings(conference)
+    seatings_grouped = time()
+    print "Seatings grouped %s" % (seatings_grouped - conference_optimized)
+
     write_seating(conference)
+    print "Conference written %s" % (time() - seatings_grouped)
 
 if __name__ == '__main__':
     large_test()
