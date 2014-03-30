@@ -47,7 +47,7 @@ def group_seatings(conference, participants):
 
 def calc_conference_wrapper(args):
     simulation_time, conference = args
-    return calc_conference(simulation_time, 5, conference['weight_matrix'], conference['guests'], conference['table_sizes'])
+    return calc_conference(simulation_time, conference['weight_matrix'], conference['guests'], conference['table_sizes'])
 
 
 def run_simulation(source_filename, destination_filename, simulation_time):

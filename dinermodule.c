@@ -106,7 +106,6 @@ typedef struct Conference {
    Py_ssize_t occasion_count;
    int *weights;
    Py_ssize_t  weight_count;
-   int  seating_badness;
    double execution_time;
 } Conference;
 
@@ -121,8 +120,7 @@ static Conference* create_conference(PyObject *args) {
     Conference *conference = (Conference*)malloc(sizeof(Conference));
 
 
-    if (!PyArg_ParseTuple(args, "diOOO", &conference->execution_time,
-                          &conference->seating_badness,
+    if (!PyArg_ParseTuple(args, "dOOO", &conference->execution_time,
                           &weights, &participants_per_occasion,
                           &table_sizes_per_occasion)) {
         return NULL;
@@ -154,10 +152,8 @@ static void scramble(int *buf, int length) {
 static void update_relations(int *relations, int dimension_size, Occasion *occasion) {
     int offset = 0;
     for(int i=0; i<occasion->table_size_count; i++) {
-//        printf("Table %i\n", i);
         for(int j=0; j<occasion->table_sizes[i]; j++) {
             for(int k=0; k<j; k++) {
-//                printf("Relation: %i - %i\n", occasion->participants[offset+j], occasion->participants[offset+k]);
                 relations[(occasion->participants[offset+j] * dimension_size) +
                           occasion->participants[offset+k]]++;
 

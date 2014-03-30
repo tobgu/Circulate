@@ -53,7 +53,7 @@ def large_test():
     conference_read = time()
     print "Done, time=%s" % (conference_read - start)
 
-    score, tests_count, participants, relations = calc_conference(10.0, 5, conference['weight_matrix'],
+    score, tests_count, participants, relations = calc_conference(10.0, conference['weight_matrix'],
                                                                   conference['guests'], conference['table_sizes'])
     conference_optimized = time()
     print "Calc conference: time=%s, score=%s, tests_count=%s, participants=%s" % (conference_optimized - conference_read,
