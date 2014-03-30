@@ -35,13 +35,15 @@ def print_seatings(conference):
 # TODO
 # x - Write to excel
 # - Measure time taken to loop and merge some of the loops
-# - Get the web interface working including subprocessing
-# - Measure the read in times and improve them if possible
+# x - Get the web interface working including subprocessing
+# - ~ Measure the read in times and improve them if possible
 # - Make some sort of validation of the generated data, writing down weights and reoccuring pairs?
 # - Make it possible to start from a fixed position
 # - Make it possible to lock certain individuals to certain positions and optimize from there
 # - Dust of the table based algorithm to make it work over the whole conference
 # - Print tables and participants ordered by the last or first name of the participant
+# - Some sort if drag and drop HTML interface as a complement to the excel file delivered
+#   for intermediate seating manipulation
 
 def large_test():
     print "Reading conference data"

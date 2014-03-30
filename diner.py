@@ -4,6 +4,7 @@ import multiprocessing
 from xlsm_io import read_conference_data, write_seating
 from dinerc import calc_tables, calc_conference
 
+
 def calc_weight_matrix():
     eater_count = 200
     eaters = ['eater %s' % i for i in range(eater_count)]
@@ -44,31 +45,23 @@ def group_seatings(conference, participants):
         conference['placements'][name] = participants_by_table
 
 
+def calc_conference_wrapper(args):
+    simulation_time, conference = args
+    return calc_conference(simulation_time, 5, conference['weight_matrix'], conference['guests'], conference['table_sizes'])
+
+
 def run_simulation(source_filename, destination_filename, simulation_time):
     conference = read_conference_data(filename=source_filename)
 
-    score, participants, relations = calc_conference(simulation_time, 5, conference['weight_matrix'],
-                                                     conference['guests'], conference['table_sizes'])
+    pool_size = multiprocessing.cpu_count()
+    pool = multiprocessing.Pool(processes=pool_size)
+
+    results = pool.map(calc_conference_wrapper, pool_size * [[simulation_time, conference]])
+
+    score, participants, relations = min(results, key=lambda r: r[0])
     group_seatings(conference, participants)
-    print "Destination: " + destination_filename
     write_seating(conference, filename=destination_filename)
 
-#    pool_size = multiprocessing.cpu_count()
-#    pool = multiprocessing.Pool(processes=pool_size)
-#    weights = calc_weight_matrix()
-#    participants_by_occasion = [sample(range(len(weights)), 100)]
-#    tables_by_occasion = [[4, 4, 4, 4, 4, 8, 8, 8, 8, 8, 10, 10, 10, 10]]
-#    execution_time = 1.0
-#    placementsc = []
-#    for x in range(1):
-#        for participants, table_sizes in zip(participants_by_occasion, tables_by_occasion):
-#            placement_candidates = pool.map(do_calculation_c, pool_size * [[execution_time, weights, participants, table_sizes]])
-#            placementsc.append(min(x['total_score'] for x in placement_candidates))
-
-#    pool.close()
-#    pool.join()
-
-#    print "Placements c, avg: %s, min: %s, max: %s" % (sum(placementsc)/float(len(placementsc)), min(placementsc), max(placementsc))
 
 def run():
     pool_size = multiprocessing.cpu_count()
