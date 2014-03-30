@@ -1,7 +1,31 @@
-from openpyxl import load_workbook
+from openpyxl import load_workbook, Workbook
+from openpyxl.cell import get_column_letter
+from time import time
+
+def write_seating(conference, filename='seating_out.xls'):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Seatings"
+
+    for col_idx, (name, tables) in enumerate(conference['placements'].items()):
+        col = get_column_letter(col_idx+1)
+        row = 1
+        ws.cell('%s%s' % (col, row)).value = name
+        ws.cell('%s%s' % (col, row)).style.font.bold = True
+        for i, table in enumerate(tables):
+            row += 2
+            ws.cell('%s%s' % (col, row)).value = "Table %s" % (i+1)
+            ws.cell('%s%s' % (col, row)).style.font.bold = True
+            for participant in table:
+                row += 1
+                ws.cell('%s%s'%(col, row)).value = participant
+
+        ws.column_dimensions[col].width = 20.0
+
+    wb.save(filename=filename)
 
 
-def conference_data(filename='seating.xlsm'):
+def read_conference_data(filename='seating.xlsm'):
     wb = load_workbook(filename=filename)
     conference = {}
     conference['staff_names'], conference['weight_matrix'] = staff_info(wb)

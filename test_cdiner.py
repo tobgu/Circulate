@@ -1,5 +1,6 @@
+from collections import OrderedDict
 from dinerc import calc_tables, calc_conference
-from xlsm_io import conference_data
+from xlsm_io import read_conference_data, write_seating
 
 
 def print_relations(relations, dimension_size):
@@ -21,7 +22,7 @@ def small_test():
 
 
 def group_seatings(conference, participants):
-    conference['placements'] = {}
+    conference['placements'] = OrderedDict()
     for i, (name, table_sizes) in enumerate(zip(conference['seating_names'], conference['table_sizes'])):
         start = 0
         participants_by_table = []
@@ -42,16 +43,28 @@ def print_seatings(conference):
                 print participant.encode('utf-8')
 
 
+# TODO
+# x - Write to excel
+# - Measure time taken to loop and merge some of the loops
+# - Get the web interface working including subprocessing
+# - Measure the read in times and improve them if possible
+# - Make some sort of validation of the generated data, writing down weights and reoccuring pairs?
+# - Make it possible to start from a fixed position
+# - Make it possible to lock certain individuals to certain positions and optimize from there
+# - Dust of the table based algorithm to make it work over the whole conference
+# - Print tables and participants ordered by the last or first name of the participant
+
 def large_test():
     print "Reading conference data"
-    conference = conference_data()
+    conference = read_conference_data()
     print "Done"
     score, participants, relations = calc_conference(1.0, 5, conference['weight_matrix'],
                                                      conference['guests'], conference['table_sizes'])
     print "Calc conference: %s, %s" % (score, participants)
 
     group_seatings(conference, participants)
-    print_seatings(conference)
+#    print_seatings(conference)
+    write_seating(conference)
 
 if __name__ == '__main__':
     large_test()
