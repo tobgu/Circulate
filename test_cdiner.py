@@ -7,6 +7,7 @@ def print_relations(relations, dimension_size):
     for x in range(0, dimension_size*dimension_size, dimension_size):
         print relations[x:x+dimension_size]
 
+
 def small_test():
     weight_matrix = [[1, 2, 3, 3],
                      [4, 5, 6, 7],
@@ -19,18 +20,6 @@ def small_test():
     score, participants, relations = calc_conference(1.0, 5, weight_matrix, participants, tables)
     print "Calc conference: %s, %s" % (score, participants)
     print_relations(relations, len(weight_matrix))
-
-
-def group_seatings(conference, participants):
-    conference['placements'] = OrderedDict()
-    for i, (name, table_sizes) in enumerate(zip(conference['seating_names'], conference['table_sizes'])):
-        start = 0
-        participants_by_table = []
-        for size in table_sizes:
-            participants_by_table.append([conference['staff_names'][p] for p in participants[i][start:start+size]])
-            start += size
-
-        conference['placements'][name] = participants_by_table
 
 
 def print_seatings(conference):

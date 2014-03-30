@@ -1,6 +1,7 @@
 from openpyxl import load_workbook, Workbook
 from openpyxl.cell import get_column_letter
-from time import time
+#from time import time
+
 
 def write_seating(conference, filename='seating_out.xls'):
     wb = Workbook()
