@@ -309,9 +309,9 @@ static PyObject *conference_to_pylist(int** participants, Conference *conference
 }
 
 
-static int foo(int *table, int table_size, int current_participant_ix,
-               int *current_weight_array, int *current_relations_array,
-               int *other_weight_array,   int *other_relations_array) {
+static int calculate_move(int *table, int table_size, int current_participant_ix,
+                          int *current_weight_array, int *current_relations_array,
+                          int *other_weight_array,   int *other_relations_array) {
     /* Calculates a score for moving participants to/from a table. A negative score
        means that seating after the move is better than it was before */
     int score = 0;
@@ -328,14 +328,15 @@ static int foo(int *table, int table_size, int current_participant_ix,
         }
 
         /******** New scores if moving *************/
-        /* Move participant from table
+        /* Move participant from table.
            Calculate the relation count as the current count minus one for all participants at the table
            that are still seated with this participant at some stage, otherwise skip since never seated */
         if((current_relations_array[peer] - 1) > 0) {
             score += (current_weight_array[peer] + 1) << (current_relations_array[peer] - 2);
         }
 
-        /* Move other participant to table, don't count the index where current participant is seated since
+        /* Move other participant to table.
+           Don't count the index where current participant is seated since
            she would not be there any more if we decide to go ahead and make the move. */
         if(i != current_participant_ix) {
             score += (other_weight_array[peer] + 1) << other_relations_array[peer];
@@ -351,47 +352,17 @@ static int foo(int *table, int table_size, int current_participant_ix,
 
 static int calculate_switch(int p1_ix, int *t1, int t1_size,
                             int p2_ix, int *t2, int t2_size,
-                            int *relations, Conference *conference, int print) {
+                            int *relations, Conference *conference) {
     int *p1_weight_array = &conference->weights[conference->weight_count * t1[p1_ix]];
     int *p1_relations_array = &relations[conference->weight_count * t1[p1_ix]];
 
     int *p2_weight_array = &conference->weights[conference->weight_count * t2[p2_ix]];
     int *p2_relations_array = &relations[conference->weight_count * t2[p2_ix]];
 
-    int t1_score = foo(t1, t1_size, p1_ix, p1_weight_array, p1_relations_array, p2_weight_array, p2_relations_array);
-    int t2_score = foo(t2, t2_size, p2_ix, p2_weight_array, p2_relations_array, p1_weight_array, p1_relations_array);
+    int t1_score = calculate_move(t1, t1_size, p1_ix, p1_weight_array, p1_relations_array, p2_weight_array, p2_relations_array);
+    int t2_score = calculate_move(t2, t2_size, p2_ix, p2_weight_array, p2_relations_array, p1_weight_array, p1_relations_array);
 
     return t1_score + t2_score;
-
-    if(print) {
-        printf("T1 P1 (%i/%i): ", p1_ix, t1[p1_ix]);
-        for(int i=0; i<t1_size; i++) {
-            int peer = t1[i];
-            printf("%i/%i: %i/%i, ", i, peer, p1_weight_array[peer], p1_relations_array[peer]);
-        }
-        printf("\n");
-
-        printf("T1 P2: ");
-        for(int i=0; i<t1_size; i++) {
-            int peer = t1[i];
-            printf("%i/%i: %i/%i, ", i, peer, p2_weight_array[peer], p2_relations_array[peer]);
-        }
-        printf("\n");
-
-        printf("T2 P2 (%i/%i): ", p2_ix, t2[p2_ix]);
-        for(int i=0; i<t2_size; i++) {
-            int peer = t2[i];
-            printf("%i/%i: %i/%i, ", i, peer, p2_weight_array[peer], p2_relations_array[peer]);
-        }
-        printf("\n");
-
-        printf("T2 P1: ");
-        for(int i=0; i<t2_size; i++) {
-            int peer = t2[i];
-            printf("%i/%i: %i/%i, ", i, peer, p1_weight_array[peer], p1_relations_array[peer]);
-        }
-        printf("\n");
-    }
 }
 
 static void perform_switch(int ix1, int ix2, int *participants, int t1_offset, int t2_offset,
@@ -400,9 +371,9 @@ static void perform_switch(int ix1, int ix2, int *participants, int t1_offset, i
     int p1 = participants[ix1];
     int p2 = participants[ix2];
 
+    /* TODO: Could the two below loops be DRYed? */
     for(int i=t1_offset; i<t1_offset+t1_size; i++) {
         if(i != ix1) {
-            /* TODO: Introduce variable for other participant */
             relations[(p1 * relation_count) + participants[i]]--;
             relations[(participants[i] * relation_count) + p1]--;
 
@@ -453,14 +424,9 @@ Loop over all tables at all occasions
                   for(int p2_ix=t2_offset; p2_ix<t2_offset+data.table_sizes[t2_ix]; p2_ix++) {
                      int diff = calculate_switch(p1_ix - t1_offset, &(data.participants[t1_offset]), data.table_sizes[t1_ix],
                                                  p2_ix - t2_offset, &(data.participants[t2_offset]), data.table_sizes[t2_ix],
-                                                 relations, conference, 0);
+                                                 relations, conference);
 
                      if (diff < best_diff) {
-/*
-                        calculate_switch(p1_ix - t1_offset, &(data.participants[t1_offset]), data.table_sizes[t1_ix],
-                                                 p2_ix - t2_offset, &(data.participants[t2_offset]), data.table_sizes[t2_ix],
-                                                 relations, conference, 1);
-*/
                         best_diff = diff;
                         best_occasion_ix = o_ix;
                         best_p1_ix = p1_ix;
@@ -491,12 +457,6 @@ Loop over all tables at all occasions
                  best_p1_ix, best_p2_ix, best_diff, best_occasion_ix, best_t1_offset, best_t2_offset);
           perform_switch(best_p1_ix, best_p2_ix, conference->occasions[best_occasion_ix].participants,
                          best_t1_offset, best_t2_offset, best_t1_size, best_t2_size, relations, conference->weight_count);
-/*
-          int diff = calculate_switch(best_p1_ix - best_t1_offset, &(conference->occasions[best_occasion_ix].participants[best_t1_offset]), best_t1_size,
-                                      best_p2_ix - best_t2_offset, &(conference->occasions[best_occasion_ix].participants[best_t2_offset]), best_t2_size,
-                                      relations, conference, 1);
-          printf("Calculated diff after: %i\n", diff);
-*/
           best_diff = 0;
       } else {
           return tests_count;
