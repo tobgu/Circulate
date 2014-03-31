@@ -309,16 +309,59 @@ static PyObject *conference_to_pylist(int** participants, Conference *conference
 }
 
 
+static int foo(int *table, int table_size, int current_participant_ix,
+               int *current_weight_array, int *current_relations_array,
+               int *other_weight_array,   int *other_relations_array) {
+    /* Calculates a score for moving participants to/from a table. A negative score
+       means that seating after the move is better than it was before */
+    int score = 0;
+    for(int i=0; i<table_size; i++) {
+        int peer = table[i];
+
+        /*********** Current scores *********/
+        if(current_relations_array[peer] > 0) {
+            score -= (current_weight_array[peer] + 1) << (current_relations_array[peer] - 1);
+        }
+
+        if(other_relations_array[peer] > 0) {
+            score -= (other_weight_array[peer] + 1) << (other_relations_array[peer] - 1);
+        }
+
+        /******** New scores if moving *************/
+        /* Move participant from table
+           Calculate the relation count as the current count minus one for all participants at the table
+           that are still seated with this participant at some stage, otherwise skip since never seated */
+        if((current_relations_array[peer] - 1) > 0) {
+            score += (current_weight_array[peer] + 1) << (current_relations_array[peer] - 2);
+        }
+
+        /* Move other participant to table, don't count the index where current participant is seated since
+           she would not be there any more if we decide to go ahead and make the move. */
+        if(i != current_participant_ix) {
+            score += (other_weight_array[peer] + 1) << other_relations_array[peer];
+        } else if (other_relations_array[peer] > 0) {
+            /* Participants are seated next to each other at some other occasion that must be considered */
+            score += (other_weight_array[peer] + 1) << (other_relations_array[peer] - 1);
+        }
+
+    }
+
+    return score;
+}
+
 static int calculate_switch(int p1_ix, int *t1, int t1_size,
                             int p2_ix, int *t2, int t2_size,
                             int *relations, Conference *conference, int print) {
-    int score = 0;
-
     int *p1_weight_array = &conference->weights[conference->weight_count * t1[p1_ix]];
     int *p1_relations_array = &relations[conference->weight_count * t1[p1_ix]];
 
     int *p2_weight_array = &conference->weights[conference->weight_count * t2[p2_ix]];
     int *p2_relations_array = &relations[conference->weight_count * t2[p2_ix]];
+
+    int t1_score = foo(t1, t1_size, p1_ix, p1_weight_array, p1_relations_array, p2_weight_array, p2_relations_array);
+    int t2_score = foo(t2, t2_size, p2_ix, p2_weight_array, p2_relations_array, p1_weight_array, p1_relations_array);
+
+    return t1_score + t2_score;
 
     if(print) {
         printf("T1 P1 (%i/%i): ", p1_ix, t1[p1_ix]);
@@ -349,67 +392,6 @@ static int calculate_switch(int p1_ix, int *t1, int t1_size,
         }
         printf("\n");
     }
-
-    /** TODO: Make a function of the two loops below */
-
-    /* New scores for participant 1 and 2 based on table 1 seating  */
-    for(int i=0; i<t1_size; i++) {
-        /******** New scores *************/
-        /* Move participant 1 from table 1
-           Calculate the relation count as the current count minus one for all participants at the table
-           that are still seated with this participant at some stage, otherwise skip since never seated */
-        int peer = t1[i];
-        if((p1_relations_array[peer] - 1) > 0) {
-            score += (p1_weight_array[peer] + 1) << (p1_relations_array[peer] - 2);
-        }
-
-        /* Move participant 2 to table 1, don't count the index where participant 1 is seated since
-           she would not be there any more if we decide to go ahead and make the move. */
-        if(i != p1_ix) {
-            score += (p2_weight_array[peer] + 1) << p2_relations_array[peer];
-        } else if (p2_relations_array[peer] > 0) {
-            /* Persons are seated next to each other at some other occasion... */
-            score += (p2_weight_array[peer] + 1) << (p2_relations_array[peer] - 1);
-        }
-
-        /*********** Current scores *********/
-        if(p1_relations_array[peer] > 0) {
-            score -= (p1_weight_array[peer] + 1) << (p1_relations_array[peer] - 1);
-        }
-
-        // New code
-        if(p2_relations_array[peer] > 0) {
-            score -= (p2_weight_array[peer] + 1) << (p2_relations_array[peer] - 1);
-        }
-
-    }
-
-    /* Could probably make a function of this and the above to remove some duplication */
-    for(int i=0; i<t2_size; i++) {
-        /******** New scores *************/
-        int peer = t2[i];
-        if((p2_relations_array[peer] - 1) > 0) {
-            score += (p2_weight_array[peer] + 1) << (p2_relations_array[peer] - 2);
-        }
-
-        if(i != p2_ix) {
-            score += (p1_weight_array[peer] + 1) << p1_relations_array[peer];
-        } else if (p1_relations_array[peer] > 0) {
-            score += (p1_weight_array[peer] + 1) << (p1_relations_array[peer] - 1);
-        }
-
-        /*********** Current scores *********/
-        // New code
-        if(p1_relations_array[peer] > 0) {
-            score -= (p1_weight_array[peer] + 1)  << (p1_relations_array[peer] - 1);
-        }
-
-        if(p2_relations_array[peer] > 0) {
-            score -= (p2_weight_array[peer] + 1) << (p2_relations_array[peer] - 1);
-        }
-    }
-
-    return score;
 }
 
 static void perform_switch(int ix1, int ix2, int *participants, int t1_offset, int t2_offset,
