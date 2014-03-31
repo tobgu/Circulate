@@ -308,26 +308,10 @@ static PyObject *conference_to_pylist(int** participants, Conference *conference
     return list;
 }
 
-static int table_weight_for_participant(int p_ix, int *t, int t_size,
-                                        int *relations, Conference *conference) {
-    unsigned long int score = 0;
-    int *weight_array = &conference->weights[conference->weight_count * t[p_ix]];
-    int *relations_array = &relations[conference->weight_count * t[p_ix]];
 
-    for(int i=0; i < t_size; i++) {
-        if(relations_array[t[i]] > 0) {
-            /* This should probably be + 1 to avoid multiple seatings even if not related... */
-            score += weight_array[t[i]] << (relations_array[t[i]] - 1);
-        }
-    }
-
-    return score;
-}
-
-
-static int calculate_new_score(int p1_ix, int *t1, int t1_size,
-                               int p2_ix, int *t2, int t2_size,
-                               int *relations, Conference *conference, int print) {
+static int calculate_switch(int p1_ix, int *t1, int t1_size,
+                            int p2_ix, int *t2, int t2_size,
+                            int *relations, Conference *conference, int print) {
     int p1_current_score = 0;
     int p2_current_score = 0;
     int p1_score_t1 = 0;
@@ -369,6 +353,8 @@ static int calculate_new_score(int p1_ix, int *t1, int t1_size,
         printf("\n");
     }
 
+    /** TODO: Make a function of the two loops below */
+
     /* New scores for participant 1 and 2 based on table 1 seating  */
     for(int i=0; i<t1_size; i++) {
         /******** New scores *************/
@@ -385,6 +371,7 @@ static int calculate_new_score(int p1_ix, int *t1, int t1_size,
         if(i != p1_ix) {
             p2_score_t1 += (p2_weight_array[peer] + 1) << p2_relations_array[peer];
         } else if (p2_relations_array[peer] > 0) {
+            /* Persons are seated next to each other at some other occasion... */
             p2_score_t1 += (p2_weight_array[peer] + 1) << (p2_relations_array[peer] - 1);
         }
 
@@ -404,8 +391,6 @@ static int calculate_new_score(int p1_ix, int *t1, int t1_size,
     /* Could probably make a function of this and the above to remove some duplication */
     int p1_score_t2 = 0;
     int p2_score_t2 = 0;
-    int p1_current_score_t2 = 0;
-    int p2_current_score_t2 = 0;
 
     for(int i=0; i<t2_size; i++) {
         /******** New scores *************/
@@ -440,21 +425,6 @@ static int calculate_new_score(int p1_ix, int *t1, int t1_size,
 
     return new_score - current_score;
 }
-
-static int calculate_switch(int p1_ix, int *t1, int t1_size,
-                            int p2_ix, int *t2, int t2_size,
-                            int *relations, Conference *conference, int print) {
-    /* Should probably merge the following function calls into the below function to avoid
-       excessive looping... */
-//    int w1_curr = table_weight_for_participant(p1_ix, t1, t1_size, relations, conference);
-//    int w2_curr = table_weight_for_participant(p2_ix, t2, t2_size, relations, conference);
-
-//    int score_new = calculate_new_score(p1_ix, t1, t1_size, p2_ix, t2, t2_size, relations, conference);
-
-//    return score_new - (w1_curr + w2_curr);
-    return calculate_new_score(p1_ix, t1, t1_size, p2_ix, t2, t2_size, relations, conference, print);
-}
-
 
 static void perform_switch(int ix1, int ix2, int *participants, int t1_offset, int t2_offset,
                            int t1_size, int t2_size, int *relations, int relation_count) {
