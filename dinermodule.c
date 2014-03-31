@@ -312,10 +312,7 @@ static PyObject *conference_to_pylist(int** participants, Conference *conference
 static int calculate_switch(int p1_ix, int *t1, int t1_size,
                             int p2_ix, int *t2, int t2_size,
                             int *relations, Conference *conference, int print) {
-    int p1_current_score = 0;
-    int p2_current_score = 0;
-    int p1_score_t1 = 0;
-    int p2_score_t1 = 0;
+    int score = 0;
 
     int *p1_weight_array = &conference->weights[conference->weight_count * t1[p1_ix]];
     int *p1_relations_array = &relations[conference->weight_count * t1[p1_ix]];
@@ -363,67 +360,56 @@ static int calculate_switch(int p1_ix, int *t1, int t1_size,
            that are still seated with this participant at some stage, otherwise skip since never seated */
         int peer = t1[i];
         if((p1_relations_array[peer] - 1) > 0) {
-            p1_score_t1 += (p1_weight_array[peer] + 1) << (p1_relations_array[peer] - 2);
+            score += (p1_weight_array[peer] + 1) << (p1_relations_array[peer] - 2);
         }
 
         /* Move participant 2 to table 1, don't count the index where participant 1 is seated since
            she would not be there any more if we decide to go ahead and make the move. */
         if(i != p1_ix) {
-            p2_score_t1 += (p2_weight_array[peer] + 1) << p2_relations_array[peer];
+            score += (p2_weight_array[peer] + 1) << p2_relations_array[peer];
         } else if (p2_relations_array[peer] > 0) {
             /* Persons are seated next to each other at some other occasion... */
-            p2_score_t1 += (p2_weight_array[peer] + 1) << (p2_relations_array[peer] - 1);
+            score += (p2_weight_array[peer] + 1) << (p2_relations_array[peer] - 1);
         }
 
         /*********** Current scores *********/
         if(p1_relations_array[peer] > 0) {
-            p1_current_score += (p1_weight_array[peer] + 1) << (p1_relations_array[peer] - 1);
+            score -= (p1_weight_array[peer] + 1) << (p1_relations_array[peer] - 1);
         }
 
-        // New code, why does this not work? We do want to include the current weight of p2
-        // p1, don't we?
+        // New code
         if(p2_relations_array[peer] > 0) {
-            p2_current_score += (p2_weight_array[peer] + 1) << (p2_relations_array[peer] - 1);
+            score -= (p2_weight_array[peer] + 1) << (p2_relations_array[peer] - 1);
         }
 
     }
 
     /* Could probably make a function of this and the above to remove some duplication */
-    int p1_score_t2 = 0;
-    int p2_score_t2 = 0;
-
     for(int i=0; i<t2_size; i++) {
         /******** New scores *************/
         int peer = t2[i];
         if((p2_relations_array[peer] - 1) > 0) {
-            p2_score_t2 += (p2_weight_array[peer] + 1) << (p2_relations_array[peer] - 2);
+            score += (p2_weight_array[peer] + 1) << (p2_relations_array[peer] - 2);
         }
 
         if(i != p2_ix) {
-            p1_score_t2 += (p1_weight_array[peer] + 1) << p1_relations_array[peer];
+            score += (p1_weight_array[peer] + 1) << p1_relations_array[peer];
         } else if (p1_relations_array[peer] > 0) {
-            p1_score_t2 += (p1_weight_array[peer] + 1) << (p1_relations_array[peer] - 1);
+            score += (p1_weight_array[peer] + 1) << (p1_relations_array[peer] - 1);
         }
 
         /*********** Current scores *********/
         // New code
         if(p1_relations_array[peer] > 0) {
-            p1_current_score += (p1_weight_array[peer] + 1)  << (p1_relations_array[peer] - 1);
+            score -= (p1_weight_array[peer] + 1)  << (p1_relations_array[peer] - 1);
         }
 
         if(p2_relations_array[peer] > 0) {
-            p2_current_score += (p2_weight_array[peer] + 1) << (p2_relations_array[peer] - 1);
+            score -= (p2_weight_array[peer] + 1) << (p2_relations_array[peer] - 1);
         }
     }
 
-    int new_score = p1_score_t1 + p1_score_t2 + p2_score_t1 + p2_score_t2;
-//    return new_score;
-    int current_score = p1_current_score + p2_current_score;
-    if(print) {
-        printf("Current score: %i, new score: %i\n", current_score, new_score);
-    }
-
-    return new_score - current_score;
+    return score;
 }
 
 static void perform_switch(int ix1, int ix2, int *participants, int t1_offset, int t2_offset,
