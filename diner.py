@@ -2,7 +2,7 @@ from collections import OrderedDict
 from random import random, sample
 import multiprocessing
 from time import time
-from xlsm_io import read_conference_data, write_seating, add_global_simulation_info
+from xlsm_io import read_conference_data, write_seating, add_global_simulation_info, write_score
 from dinerc import calc_tables, calc_conference
 
 
@@ -25,8 +25,7 @@ def adjust_weight_matrix(weights, placement):
     pass
 
 
-def do_calculation_c(arg):
-    from dinerc import calc_tables
+def run_occasion_by_occasion_simulation(arg):
     execution_time, weights, participants, table_sizes = arg
     iterations, result = calc_tables(execution_time, weights, participants, table_sizes)
 
@@ -34,7 +33,7 @@ def do_calculation_c(arg):
     return {'total_score': result}
 
 
-def group_seatings(conference, participants):
+def add_seatings(conference, participants):
     conference['placements'] = OrderedDict()
     for i, (name, table_sizes) in enumerate(zip(conference['seating_names'], conference['table_sizes'])):
         start = 0
@@ -74,7 +73,7 @@ def create_relation_list(relations, conference):
     return sorted(result, key=lambda x: (x[1], x[2]), reverse=True)
 
 
-def run_simulation(source_filename, destination_filename, simulation_time):
+def run_global_simulation(source_filename, destination_filename, simulation_time):
     conference = read_conference_data(filename=source_filename)
 
     pool_size = multiprocessing.cpu_count()
@@ -84,35 +83,40 @@ def run_simulation(source_filename, destination_filename, simulation_time):
     results = pool.map(calc_conference_wrapper, pool_size * [[simulation_time, conference]])
     duration = time() - start
 
+    pool.close()
+    pool.join()
+
     best_result = min(results, key=lambda r: r['score'])
     test_count = sum(r['test_count'] for r in results)
     scramble_count = sum(r['scramble_count'] for r in results)
 
-    group_seatings(conference, best_result['participants'])
+    add_seatings(conference, best_result['participants'])
     write_seating(conference, filename=destination_filename)
     relation_list = create_relation_list(best_result['relations'], conference)
     add_global_simulation_info(best_result['score'], test_count, scramble_count, duration,
                                relation_list, filename=destination_filename)
 
 
-def run():
+def run_linear_simulation(source_filename, destination_filename, simulation_time):
+    conference = read_conference_data(filename=source_filename)
+
     pool_size = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=pool_size)
-    weights = calc_weight_matrix()
-    participants_by_occasion = [sample(range(len(weights)), 100)]
-    tables_by_occasion = [[4, 4, 4, 4, 4, 8, 8, 8, 8, 8, 10, 10, 10, 10]]
-    execution_time = 1.0
-    placementsc = []
-    for x in range(1):
-        for participants, table_sizes in zip(participants_by_occasion, tables_by_occasion):
-            placement_candidates = pool.map(do_calculation_c, pool_size * [[execution_time, weights, participants, table_sizes]])
-            placementsc.append(min(x['total_score'] for x in placement_candidates))
+
+    occasion_count = len(conference['seating_names'])
+    execution_time = simulation_time / occasion_count
+
+    placements = []
+    for i in range(occasion_count):
+        # TODO: Merge results and modify weight_matrix to reflect previous occasion
+        placement_candidates = pool.map(run_occasion_by_occasion_simulation,
+                                        pool_size * [[execution_time,
+                                                      conference['weight_matrix'],
+                                                      conference['guests'][i],
+                                                      conference['table_sizes'][i]]])
+        placements.append(min(x['total_score'] for x in placement_candidates))
+
+    write_score(sum(placements), destination_filename)
 
     pool.close()
     pool.join()
-
-    print "Placements c, avg: %s, min: %s, max: %s" % (sum(placementsc)/float(len(placementsc)), min(placementsc), max(placementsc))
-
-
-if __name__ == '__main__':
-    run()

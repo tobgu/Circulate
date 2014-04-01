@@ -3,11 +3,20 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-typedef struct SimulationData {
+typedef struct Occasion {
    int* participants;
-   int  participant_count;
+   Py_ssize_t  participant_count;
    int* table_sizes;
-   int  table_size_count;
+   Py_ssize_t  table_size_count;
+} Occasion;
+
+
+typedef struct SimulationData {
+   // TODO: Replace this with the occassion count struct below to be able to
+   //       share some functions
+   Occasion occasion;
+   // End of replace
+
    int* weights;
    int  weight_count;
    double execution_time;
@@ -49,8 +58,8 @@ static SimulationData* create_simulation_data(PyObject *args) {
         return NULL;
     }
 
-    data->participant_count = pylist_to_array(participants, &data->participants);
-    data->table_size_count = pylist_to_array(table_sizes, &data->table_sizes);
+    data->occasion.participant_count = pylist_to_array(participants, &(data->occasion.participants));
+    data->occasion.table_size_count = pylist_to_array(table_sizes, &(data->occasion.table_sizes));
     data->weight_count = pylistlist_to_array(weights, &data->weights);
 
     return data;
@@ -58,18 +67,11 @@ static SimulationData* create_simulation_data(PyObject *args) {
 
 
 static void destroy_simulation_data(SimulationData *data) {
-    free(data->participants);
-    free(data->table_sizes);
+    free(data->occasion.participants);
+    free(data->occasion.table_sizes);
     free(data->weights);
     free(data);
 }
-
-typedef struct Occasion {
-   int* participants;
-   Py_ssize_t  participant_count;
-   int* table_sizes;
-   Py_ssize_t  table_size_count;
-} Occasion;
 
 static void destroy_occasions(Occasion *occasions, int occasion_count) {
     for(int i=0; i<occasion_count; i++) {
@@ -81,8 +83,8 @@ static void destroy_occasions(Occasion *occasions, int occasion_count) {
 }
 
 static Py_ssize_t create_occasions(PyObject *participants_per_occasion,
-                            PyObject *table_sizes_per_occasion,
-                            Occasion **occasions) {
+                                   PyObject *table_sizes_per_occasion,
+                                   Occasion **occasions) {
     PyObject *outer_participants = PySequence_Fast(participants_per_occasion, "expected a sequence");
     PyObject *outer_table_sizes = PySequence_Fast(table_sizes_per_occasion, "expected a sequence");
 
@@ -167,8 +169,8 @@ static void update_relations(int *relations, int dimension_size, Occasion *occas
     }
 }
 
-static int* create_relation_matrix(Conference *conference) {
-    size_t size = conference->weight_count * conference->weight_count * sizeof(int);
+static int* create_relation_matrix(int dimension_size) {
+    size_t size = dimension_size * dimension_size * sizeof(int);
     int *relations = (int*)malloc(size);
     memset((void*)relations, 0, size);
     return relations;
@@ -180,7 +182,7 @@ static int* scramble_conference(Conference *conference) {
        It is really just a redundant (but easier to work with when running optimizations)
        representation of the tables and their participants. */
 
-    int *relations = create_relation_matrix(conference);
+    int *relations = create_relation_matrix(conference->weight_count);
     for(int i=0; i<conference->occasion_count; i++) {
         scramble(conference->occasions[i].participants, conference->occasions[i].participant_count);
         update_relations(relations, conference->weight_count, &(conference->occasions[i]));
@@ -191,11 +193,11 @@ static int* scramble_conference(Conference *conference) {
 
 static double calculate_table_score(SimulationData *data, int t_offset, int t_index) {
     int accumulator = 0;
-    int t_size = data->table_sizes[t_index];
+    int t_size = data->occasion.table_sizes[t_index];
     for(int j=0; j<t_size; j++) {
         for(int k=0; k<j; k++) {
-            accumulator += data->weights[(data->weight_count * data->participants[t_offset+j]) +
-                           data->participants[t_offset+k]];
+            accumulator += data->weights[(data->weight_count * data->occasion.participants[t_offset+j]) +
+                           data->occasion.participants[t_offset+k]];
         }
     }
 
@@ -209,81 +211,57 @@ static void change_place(int ix1, int ix2, int *arr) {
 }
 
 
-static int climb_greedy(SimulationData *data) {
-  int t1_offset = 0;
+static long int optimize_occasion(SimulationData *data) {
   int best_p1_ix = -1;
   int best_p2_ix = -1;
-  double best_diff = 0;
+  long int test_count = 0;
 
-  for(int t1_ix=0; t1_ix<data->table_size_count; t1_ix++) {
-     double t1_w1 = calculate_table_score(data, t1_offset, t1_ix);
-     for(int p1_ix=t1_offset; p1_ix<t1_offset+data->table_sizes[t1_ix]; p1_ix++) {
-        int t2_offset = t1_offset + data->table_sizes[t1_ix];
-        for(int t2_ix=t1_ix+1; t2_ix<data->table_size_count; t2_ix++) {
-           double t2_w1 = calculate_table_score(data, t2_offset, t2_ix);
-           for(int p2_ix=t2_offset; p2_ix<t2_offset+data->table_sizes[t2_ix]; p2_ix++) {
-              change_place(p1_ix, p2_ix, data->participants);
-              double t1_w2 = calculate_table_score(data, t1_offset, t1_ix);
-              double t2_w2 = calculate_table_score(data, t2_offset, t2_ix);
-              if((t1_w2 + t2_w2) < (t1_w1 + t2_w1)) {
-                 double diff = (t1_w1 + t2_w1) - (t1_w2 + t2_w2);
-                 if (diff > best_diff) {
-                    best_diff = diff;
-                    best_p1_ix = p1_ix;
-                    best_p2_ix = p2_ix;
-                 }
-              }
-              change_place(p1_ix, p2_ix, data->participants);
-           }
-           t2_offset += data->table_sizes[t2_ix];
-        }
-     }
-     t1_offset += data->table_sizes[t1_ix];
+  while(1) {
+      int t1_offset = 0;
+      double best_diff = 0;
+      for(int t1_ix=0; t1_ix<data->occasion.table_size_count; t1_ix++) {
+         double t1_w1 = calculate_table_score(data, t1_offset, t1_ix);
+         for(int p1_ix=t1_offset; p1_ix<t1_offset+data->occasion.table_sizes[t1_ix]; p1_ix++) {
+            int t2_offset = t1_offset + data->occasion.table_sizes[t1_ix];
+            for(int t2_ix=t1_ix+1; t2_ix<data->occasion.table_size_count; t2_ix++) {
+               double t2_w1 = calculate_table_score(data, t2_offset, t2_ix);
+               for(int p2_ix=t2_offset; p2_ix<t2_offset+data->occasion.table_sizes[t2_ix]; p2_ix++) {
+                  change_place(p1_ix, p2_ix, data->occasion.participants);
+                  double t1_w2 = calculate_table_score(data, t1_offset, t1_ix);
+                  double t2_w2 = calculate_table_score(data, t2_offset, t2_ix);
+                  if((t1_w2 + t2_w2) < (t1_w1 + t2_w1)) {
+                     double diff = (t1_w1 + t2_w1) - (t1_w2 + t2_w2);
+                     if (diff > best_diff) {
+                        best_diff = diff;
+                        best_p1_ix = p1_ix;
+                        best_p2_ix = p2_ix;
+                     }
+                  }
+                  /* Revert to previous places */
+                  change_place(p1_ix, p2_ix, data->occasion.participants);
+                  test_count++;
+               }
+               t2_offset += data->occasion.table_sizes[t2_ix];
+            }
+         }
+         t1_offset += data->occasion.table_sizes[t1_ix];
+      }
+
+      if (best_diff > 0) {
+          change_place(best_p1_ix, best_p2_ix, data->occasion.participants);
+      } else {
+          return test_count;
+      }
   }
-
-  if (best_diff > 0) {
-      change_place(best_p1_ix, best_p2_ix, data->participants);
-      return 1;
-  }
-
-  return 0;
-}
-
-
-static int climb(SimulationData *data) {
-  int t1_offset = 0;
-
-  for(int t1_ix=0; t1_ix<data->table_size_count; t1_ix++) {
-     double t1_w1 = calculate_table_score(data, t1_offset, t1_ix);
-     for(int p1_ix=t1_offset; p1_ix<t1_offset+data->table_sizes[t1_ix]; p1_ix++) {
-        int t2_offset = t1_offset + data->table_sizes[t1_ix];
-        for(int t2_ix=t1_ix+1; t2_ix<data->table_size_count; t2_ix++) {
-           double t2_w1 = calculate_table_score(data, t2_offset, t2_ix);
-           for(int p2_ix=t2_offset; p2_ix<t2_offset+data->table_sizes[t2_ix]; p2_ix++) {
-              change_place(p1_ix, p2_ix, data->participants);
-              double t1_w2 = calculate_table_score(data, t1_offset, t1_ix);
-              double t2_w2 = calculate_table_score(data, t2_offset, t2_ix);
-              if((t1_w2 + t2_w2) < (t1_w1 + t2_w1)) {
-                 return 1;
-              }
-              change_place(p1_ix, p2_ix, data->participants);
-           }
-           t2_offset += data->table_sizes[t2_ix];
-        }
-     }
-     t1_offset += data->table_sizes[t1_ix];
-  }
-
-  return 0;
 }
 
 static double calculate_score(SimulationData *data) {
     double result = 0.0;
     int pos = 0;
 
-    for(int i=0; i<data->table_size_count; i++) {
+    for(int i=0; i<data->occasion.table_size_count; i++) {
         result += calculate_table_score(data, pos, i);
-        pos += data->table_sizes[i];
+        pos += data->occasion.table_sizes[i];
     }
 
     return result;
@@ -400,7 +378,7 @@ static long int optimize_conference(Conference *conference, int *relations) {
 Loop over all tables at all occasions
  - Find the best move (if it exists), moves can only be made within a occasion but is measured
    against all other possible moves during the whole conference.
-   Test occurence_count * n2/2 moves. More or less like climb_greedy but over the whole conference.
+   Test occurence_count * n2/2 moves. More or less like optimize_occasion but over the whole conference.
  - Make the best move, if no move exist then finish.
 */
   int best_occasion_ix = 0;
@@ -503,7 +481,7 @@ static PyObject *calc_conference(PyObject *self, PyObject *args) {
     Conference *conference = create_conference(args);
     unsigned long int best_score = 0xFFFFFFFFFFFFFFFF;
     int *relations = NULL;
-    int *best_relations = create_relation_matrix(conference);
+    int *best_relations = create_relation_matrix(conference->weight_count);
     size_t relation_size = conference->weight_count * conference->weight_count * sizeof(int);
     int **best_seatings = allocate_seating_result(conference);
     long int tests_count = 0;
@@ -535,51 +513,34 @@ static PyObject *calc_conference(PyObject *self, PyObject *args) {
 }
 
 static PyObject *calc_tables(PyObject *self, PyObject *args) {
-    double best_score_random, score, score_climbing, best_score_climbing;
-    int iteration_count = 0;
+    int scramble_count = 0;
     SimulationData *data = create_simulation_data(args);
     double stop_time = get_time() + data->execution_time;
-    int participant_array_size = data->participant_count * sizeof(int);
+    int participant_array_size = data->occasion.participant_count * sizeof(int);
     int *best_participants = (int*)malloc(participant_array_size);
+    long int tests_count = 0;
 
-    memcpy(best_participants, data->participants, participant_array_size);
-    best_score_random = calculate_score(data);
-    best_score_climbing = best_score_random;
-    double accumulated_improvement = 0.0;
+    memcpy(best_participants, data->occasion.participants, participant_array_size);
+    double score = calculate_score(data);
+    double best_score = score;
+
     while(get_time() < stop_time) {
-        scramble(data->participants, data->participant_count);
+        scramble(data->occasion.participants, data->occasion.participant_count);
+        scramble_count++;
+        tests_count += optimize_occasion(data);
         score = calculate_score(data);
-
-//        if(score < best_score_random) {
-            best_score_random = score;
-
-            int steps = 0;
-            double time_before = get_time();
-            while(climb(data)) {
-                steps++;
-            }
-
-            score_climbing = calculate_score(data);
-            double improvement = ((best_score_random - score_climbing)/best_score_random) * 100;
-            accumulated_improvement += improvement;
-            printf("Climbed, before: %f, after: %f, steps: %i, improvement: %f, time: %f\n",
-                   best_score_random, score_climbing, steps,
-                   improvement,
-                   get_time() - time_before);
-
-            if(score_climbing < best_score_climbing) {
-                best_score_climbing = score_climbing;
-                memcpy(best_participants, data->participants, participant_array_size);
-            }
-//        }
-        iteration_count++;
+        if(score < best_score) {
+            best_score = score;
+            memcpy(best_participants, data->occasion.participants, participant_array_size);
+        }
     }
 
-    printf("Average improvement: %f\n", accumulated_improvement/iteration_count);
+    PyObject *best_seating_list = array_to_pylist(best_participants, data->occasion.participant_count);
     free(best_participants);
     destroy_simulation_data(data);
 
-    return Py_BuildValue("id", iteration_count, best_score_climbing);
+    printf("Ending function\n");
+    return Py_BuildValue("idlO", scramble_count, best_score, tests_count, best_seating_list);
 }
 
 static PyMethodDef DinerMethods[] = {

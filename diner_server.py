@@ -1,7 +1,7 @@
 import os
 from flask import Flask, request, redirect, url_for
 from werkzeug.utils import secure_filename
-from diner import run_simulation
+from diner import run_global_simulation, run_linear_simulation
 
 UPLOAD_FOLDER = 'uploads/'
 RESULT_FOLDER = 'results/'
@@ -26,9 +26,9 @@ def upload_file():
             filename = secure_filename(file.filename)
             full_filename = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(full_filename)
-            result_filename = 'result_' + filename
-            run_simulation(full_filename, os.path.join(app.config['RESULT_FOLDER'], result_filename),
-                           simulation_time=float(simulation_time))
+            result_filename = 'result_' + filename.rsplit('.', 1)[0] + '.xls'
+            run_linear_simulation(full_filename, os.path.join(app.config['RESULT_FOLDER'], result_filename),
+                                  simulation_time=float(simulation_time))
             return redirect(url_for('download_file', filename=result_filename))
 
     return '''

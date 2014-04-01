@@ -26,6 +26,14 @@ def write_seating(conference, filename='seating_out.xls'):
     wb.save(filename=filename)
 
 
+def write_score(score, filename):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Seatings"
+    ws.cell('A1').value = 'Score: %s' % score
+    ws.column_dimensions['A'].width = 100.0
+    wb.save(filename=filename)
+
 def set_at_row(ws, row, name, value):
     ws.cell('A%s' % row).value = name
     ws.cell('A%s' % row).style.font.bold = True
