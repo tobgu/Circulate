@@ -371,7 +371,6 @@ static void perform_switch(int ix1, int ix2, int *participants, int t1_offset, i
     int p1 = participants[ix1];
     int p2 = participants[ix2];
 
-    /* TODO: Could the two below loops be DRYed? */
     for(int i=t1_offset; i<t1_offset+t1_size; i++) {
         if(i != ix1) {
             relations[(p1 * relation_count) + participants[i]]--;
@@ -508,9 +507,12 @@ static PyObject *calc_conference(PyObject *self, PyObject *args) {
     size_t relation_size = conference->weight_count * conference->weight_count * sizeof(int);
     int **best_seatings = allocate_seating_result(conference);
     long int tests_count = 0;
+    long int scramble_count = 0;
+
     double stop_time = get_time() + conference->execution_time;
     while(get_time() < stop_time) {
         relations = scramble_conference(conference);
+        scramble_count++;
         printf("Optimizing\n");
         tests_count += optimize_conference(conference, relations);
         unsigned long int conference_score = calculate_conference_score(conference, relations);
@@ -528,7 +530,8 @@ static PyObject *calc_conference(PyObject *self, PyObject *args) {
     destroy_seating_result(best_seatings, conference);
     destroy_conference(conference);
 
-    return Py_BuildValue("llOO", best_score, tests_count, participants_list, relation_list);
+    return Py_BuildValue("lllOO", best_score, tests_count, scramble_count,
+                         participants_list, relation_list);
 }
 
 static PyObject *calc_tables(PyObject *self, PyObject *args) {

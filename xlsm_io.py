@@ -26,6 +26,43 @@ def write_seating(conference, filename='seating_out.xls'):
     wb.save(filename=filename)
 
 
+def set_at_row(ws, row, name, value):
+    ws.cell('A%s' % row).value = name
+    ws.cell('A%s' % row).style.font.bold = True
+    ws.cell('B%s' % row).value = value
+
+
+def set_triplet_at_row(ws, row, a, b, c):
+    ws.cell('A%s' % row).value = a
+    ws.cell('B%s' % row).value = b
+    ws.cell('C%s' % row).value = c
+
+
+def add_global_simulation_info(score, tests_count, scramble_count, duration, relation_list, filename):
+    wb = load_workbook(filename=filename)
+    ws = wb.create_sheet()
+    ws.title = "Statistics"
+
+    set_at_row(ws, 1, "Simulation score", score)
+    set_at_row(ws, 2, "Simulated moves", tests_count)
+    set_at_row(ws, 3, "Starting points", scramble_count)
+    set_at_row(ws, 4, "Simulation duration", duration)
+
+    ws.cell('A8').value = "Relation"
+    ws.cell('B8').value = "At same table"
+    ws.cell('C8').value = "Badness"
+    row = 9
+    for (relation, count, badness) in relation_list:
+        set_triplet_at_row(ws, row, relation, count, badness)
+        row += 1
+
+    ws.column_dimensions['A'].width = 30.0
+    ws.column_dimensions['B'].width = 30.0
+    ws.column_dimensions['C'].width = 30.0
+
+    wb.save(filename=filename)
+
+
 def read_conference_data(filename='seating.xlsm'):
     wb = load_workbook(filename=filename)
     conference = {}

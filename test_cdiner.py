@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from dinerc import calc_tables, calc_conference
-from diner import group_seatings
+from diner import group_seatings, create_relation_list
 from xlsm_io import read_conference_data, write_seating
 from time import time
 
@@ -67,6 +67,8 @@ def large_test():
 
     write_seating(conference)
     print "Conference written %s" % (time() - seatings_grouped)
+
+    print create_relation_list(relations, conference)
 
 if __name__ == '__main__':
     large_test()

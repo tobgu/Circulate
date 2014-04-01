@@ -1,7 +1,8 @@
 from collections import OrderedDict
 from random import random, sample
 import multiprocessing
-from xlsm_io import read_conference_data, write_seating
+from time import time
+from xlsm_io import read_conference_data, write_seating, add_global_simulation_info
 from dinerc import calc_tables, calc_conference
 
 
@@ -47,7 +48,30 @@ def group_seatings(conference, participants):
 
 def calc_conference_wrapper(args):
     simulation_time, conference = args
-    return calc_conference(simulation_time, conference['weight_matrix'], conference['guests'], conference['table_sizes'])
+    score, test_count, scramble_count, participants, relations = calc_conference(simulation_time,
+                                                                                 conference['weight_matrix'],
+                                                                                 conference['guests'],
+                                                                                 conference['table_sizes'])
+    return {'score': score, 'test_count': test_count, 'scramble_count': scramble_count,
+            'participants': participants, 'relations': relations}
+
+
+def create_relation_list(relations, conference):
+    def chunks(l, n):
+        for i in xrange(0, len(l), n):
+            yield l[i:i+n]
+
+    result = []
+
+    # relations is a straight list, chunk it down to a matrix like list of lists
+    for i, rel in enumerate(chunks(relations, len(conference['staff_names']))):
+        for j, count in enumerate(rel[:i]):
+            if count > 0:
+                result.append(('%s - %s' % (conference['staff_names'][i], conference['staff_names'][j]),
+                              count, conference['weight_matrix'][i][j]))
+
+    # Sort on times seated at the same table and badness
+    return sorted(result, key=lambda x: (x[1], x[2]), reverse=True)
 
 
 def run_simulation(source_filename, destination_filename, simulation_time):
@@ -56,11 +80,19 @@ def run_simulation(source_filename, destination_filename, simulation_time):
     pool_size = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=pool_size)
 
+    start = time()
     results = pool.map(calc_conference_wrapper, pool_size * [[simulation_time, conference]])
+    duration = time() - start
 
-    score, participants, relations = min(results, key=lambda r: r[0])
-    group_seatings(conference, participants)
+    best_result = min(results, key=lambda r: r['score'])
+    test_count = sum(r['test_count'] for r in results)
+    scramble_count = sum(r['scramble_count'] for r in results)
+
+    group_seatings(conference, best_result['participants'])
     write_seating(conference, filename=destination_filename)
+    relation_list = create_relation_list(best_result['relations'], conference)
+    add_global_simulation_info(best_result['score'], test_count, scramble_count, duration,
+                               relation_list, filename=destination_filename)
 
 
 def run():
