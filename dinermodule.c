@@ -12,11 +12,7 @@ typedef struct Occasion {
 
 
 typedef struct SimulationData {
-   // TODO: Replace this with the occassion count struct below to be able to
-   //       share some functions
    Occasion occasion;
-   // End of replace
-
    int* weights;
    int  weight_count;
    double execution_time;
@@ -170,19 +166,23 @@ static void update_relations(int *relations, int dimension_size, Occasion *occas
 }
 
 static int* create_relation_matrix(int dimension_size) {
-    size_t size = dimension_size * dimension_size * sizeof(int);
-    int *relations = (int*)malloc(size);
-    memset((void*)relations, 0, size);
-    return relations;
+    return  (int*)malloc(dimension_size * dimension_size * sizeof(int));
 }
 
-static int* scramble_conference(Conference *conference) {
+static void clear_relation_matrix(int* matrix, int dimension_size) {
+    memset((void*)matrix, 0, dimension_size * dimension_size * sizeof(int));
+}
+
+static void destroy_relation_matrix(int* matrix) {
+    free(matrix);
+}
+
+static int* scramble_conference(Conference *conference, int *relations) {
     /* The relations matrix contains a count of the number of times that each person
        has been sitting at the same table as another person at the conference.
        It is really just a redundant (but easier to work with when running optimizations)
        representation of the tables and their participants. */
-
-    int *relations = create_relation_matrix(conference->weight_count);
+    clear_relation_matrix(relations, conference->weight_count);
     for(int i=0; i<conference->occasion_count; i++) {
         scramble(conference->occasions[i].participants, conference->occasions[i].participant_count);
         update_relations(relations, conference->weight_count, &(conference->occasions[i]));
@@ -480,7 +480,7 @@ static void destroy_seating_result(int** result, Conference *conference) {
 static PyObject *calc_conference(PyObject *self, PyObject *args) {
     Conference *conference = create_conference(args);
     unsigned long int best_score = 0xFFFFFFFFFFFFFFFF;
-    int *relations = NULL;
+    int *relations = create_relation_matrix(conference->weight_count);
     int *best_relations = create_relation_matrix(conference->weight_count);
     size_t relation_size = conference->weight_count * conference->weight_count * sizeof(int);
     int **best_seatings = allocate_seating_result(conference);
@@ -489,7 +489,7 @@ static PyObject *calc_conference(PyObject *self, PyObject *args) {
 
     double stop_time = get_time() + conference->execution_time;
     while(get_time() < stop_time) {
-        relations = scramble_conference(conference);
+        scramble_conference(conference, relations);
         scramble_count++;
         printf("Optimizing\n");
         tests_count += optimize_conference(conference, relations);
@@ -504,7 +504,8 @@ static PyObject *calc_conference(PyObject *self, PyObject *args) {
     PyObject *relation_list = array_to_pylist(best_relations, conference->weight_count * conference->weight_count);
     PyObject *participants_list = conference_to_pylist(best_seatings, conference);
 
-    free(relations);
+    destroy_relation_matrix(relations);
+    destroy_relation_matrix(best_relations);
     destroy_seating_result(best_seatings, conference);
     destroy_conference(conference);
 
@@ -512,7 +513,17 @@ static PyObject *calc_conference(PyObject *self, PyObject *args) {
                          participants_list, relation_list);
 }
 
-static PyObject *calc_tables(PyObject *self, PyObject *args) {
+static PyObject *create_relation_list(SimulationData *data) {
+    int* relations = create_relation_matrix(data->weight_count);
+    clear_relation_matrix(relations, data->weight_count);
+    update_relations(relations, data->weight_count, &(data->occasion));
+    PyObject *relation_list = array_to_pylist(relations, data->weight_count * data->weight_count);
+    destroy_relation_matrix(relations);
+
+    return relation_list;
+}
+
+static PyObject *calc_occasion(PyObject *self, PyObject *args) {
     int scramble_count = 0;
     SimulationData *data = create_simulation_data(args);
     double stop_time = get_time() + data->execution_time;
@@ -536,15 +547,17 @@ static PyObject *calc_tables(PyObject *self, PyObject *args) {
     }
 
     PyObject *best_seating_list = array_to_pylist(best_participants, data->occasion.participant_count);
+    PyObject *relations = create_relation_list(data);
+
     free(best_participants);
     destroy_simulation_data(data);
 
     printf("Ending function\n");
-    return Py_BuildValue("idlO", scramble_count, best_score, tests_count, best_seating_list);
+    return Py_BuildValue("idlOO", scramble_count, best_score, tests_count, best_seating_list, relations);
 }
 
 static PyMethodDef DinerMethods[] = {
-    {"calc_tables",  calc_tables, METH_VARARGS, "Places people by tables"},
+    {"calc_occasion",  calc_occasion, METH_VARARGS, "Places people by tables for a single occasion"},
     {"calc_conference",  calc_conference, METH_VARARGS, "Places people by tables optimized for the whole conference"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };

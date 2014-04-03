@@ -1,5 +1,5 @@
-from collections import OrderedDict
-from dinerc import calc_tables, calc_conference
+from dinerc import calc_occasion, calc_conference
+import itertools
 from diner import add_seatings, create_relation_list
 from xlsm_io import read_conference_data, write_seating
 from time import time
@@ -46,17 +46,12 @@ def print_seatings(conference):
 # - Some sort if drag and drop HTML interface as a complement to the excel file delivered
 #   for intermediate seating manipulation
 
-def large_test():
+def large_test(conference):
     start = time()
-    print "Reading conference data"
-    conference = read_conference_data()
-    conference_read = time()
-    print "Done, time=%s" % (conference_read - start)
-
     score, tests_count, scramble_count, participants, relations = calc_conference(1.0, conference['weight_matrix'],
                                                                   conference['guests'], conference['table_sizes'])
     conference_optimized = time()
-    print "Calc conference: time=%s, score=%s, tests_count=%s, scramble_count=%s, participants=%s" % (conference_optimized - conference_read,
+    print "Calc conference: time=%s, score=%s, tests_count=%s, scramble_count=%s, participants=%s" % (conference_optimized - start,
                                                                                    score,
                                                                                    tests_count,
                                                                                    scramble_count,
@@ -69,25 +64,42 @@ def large_test():
     write_seating(conference)
     print "Conference written %s" % (time() - seatings_grouped)
 
-    print create_relation_list(relations, conference)
+    create_relation_list(relations, conference)
 
 
-def large_linear_test():
-    conference = read_conference_data()
-
+def large_linear_test(conference):
     occasion_count = len(conference['seating_names'])
 
     placements = []
+    relation_matrices = []
     for i in range(occasion_count):
-        iterations, score, tests_count, seatings = calc_tables(0.5,
+        iterations, score, tests_count, seatings, relations = calc_occasion(0.5,
                                                   conference['weight_matrix'],
                                                   conference['guests'][i],
                                                   conference['table_sizes'][i])
-
-        print "iterations: %s, score: %s, tests_count: %s, seatings: %s" % (iterations,
+        placements.append(seatings)
+        relation_matrices.append(relations)
+        print "iterations: %s, score: %s, tests_count: %s, seatings: %s, relations: %s" % (iterations,
                                                                             score,
                                                                             tests_count,
-                                                                            seatings)
+                                                                            seatings,
+                                                                            len(relations))
+
+    add_seatings(conference, placements)
+    total_relations = [sum(r) for r in zip(*relation_matrices)]
+
+    # The same calculation that is done in the C code for the global optimization
+    score = sum((w + 1) * (2 ** (r - 1)) if r > 0 else 0 for w, r in zip(itertools.chain(*conference['weight_matrix']), total_relations))
+    print create_relation_list(total_relations, conference)
+    print "Total score: %s" % score
+
 
 if __name__ == '__main__':
-    large_linear_test()
+    start = time()
+    print "Reading conference data"
+    conference = read_conference_data()
+    conference_read = time()
+    print "Done, time=%s" % (conference_read - start)
+
+#    large_test(conference)
+    large_linear_test(conference)

@@ -2,8 +2,9 @@ from collections import OrderedDict
 from random import random, sample
 import multiprocessing
 from time import time
+import itertools
 from xlsm_io import read_conference_data, write_seating, add_global_simulation_info, write_score
-from dinerc import calc_tables, calc_conference
+from dinerc import calc_occasion, calc_conference
 
 
 def calc_weight_matrix():
@@ -25,12 +26,9 @@ def adjust_weight_matrix(weights, placement):
     pass
 
 
-def run_occasion_by_occasion_simulation(arg):
-    execution_time, weights, participants, table_sizes = arg
-    iterations, result = calc_tables(execution_time, weights, participants, table_sizes)
-
-    print "Iterations: %s, best result: %s" % (iterations, result)
-    return {'total_score': result}
+def calc_occasion_wrapper(args):
+    execution_time, weights, participants, table_sizes = args
+    return calc_occasion(execution_time, weights, participants, table_sizes)
 
 
 def add_seatings(conference, participants):
@@ -55,10 +53,11 @@ def calc_conference_wrapper(args):
             'participants': participants, 'relations': relations}
 
 
+def chunks(l, n):
+    for i in xrange(0, len(l), n):
+        yield l[i:i+n]
+
 def create_relation_list(relations, conference):
-    def chunks(l, n):
-        for i in xrange(0, len(l), n):
-            yield l[i:i+n]
 
     result = []
 
@@ -97,6 +96,26 @@ def run_global_simulation(source_filename, destination_filename, simulation_time
                                relation_list, filename=destination_filename)
 
 
+
+        # TODO:
+        # - Would be nice to be able to select
+        #   * No optimization, only scrambling
+        #   * Optimization on every scramble
+        #   * Optimization on best scramble
+        # - Some way of specifying a multiplication factor for the relations to push
+        #   persons away from each other?
+        # - Some basic styling of the input form (bootstrap?)
+        # - Add a pivot table showing the number of relations by times they were seated
+        #   together (their score in the relation matrix, right now the number of times
+        #   seated).
+        # - Add a list of all participant sorted by name per event with the table number
+        #   after.
+
+def calculate_new_weights(weight_matrix, relations):
+    flat_matrix = [(w + 1) * (2 ** (r - 1)) if r > 0 else 0 for w, r in zip(itertools.chain(*weight_matrix), relations)]
+    return list(chunks(flat_matrix, len(weight_matrix)))
+
+
 def run_linear_simulation(source_filename, destination_filename, simulation_time):
     conference = read_conference_data(filename=source_filename)
 
@@ -107,16 +126,44 @@ def run_linear_simulation(source_filename, destination_filename, simulation_time
     execution_time = simulation_time / occasion_count
 
     placements = []
+    relation_matrices = []
+    total_iteration_count = 0
+    total_tests_count = 0
+
+    weight_matrix = conference['weight_matrix']
+    start = time()
     for i in range(occasion_count):
-        # TODO: Merge results and modify weight_matrix to reflect previous occasion
-        placement_candidates = pool.map(run_occasion_by_occasion_simulation,
-                                        pool_size * [[execution_time,
-                                                      conference['weight_matrix'],
+
+        # No use to waste CPU cycles if there is only one table, we can't do anything
+        time_to_run = execution_time if len(conference['table_sizes'][i]) > 0 else 0.0
+        placement_candidates = pool.map(calc_occasion_wrapper,
+                                        pool_size * [[time_to_run,
+                                                      weight_matrix,
                                                       conference['guests'][i],
                                                       conference['table_sizes'][i]]])
-        placements.append(min(x['total_score'] for x in placement_candidates))
+        total_iteration_count += sum(x[0] for x in placement_candidates)
+        total_tests_count += sum(x[2] for x in placement_candidates)
 
-    write_score(sum(placements), destination_filename)
+        iteration_count, score, tests_count, seatings, relations = min(placement_candidates, key=lambda x: x[1])
+        placements.append(seatings)
+        relation_matrices.append(relations)
+
+        # This recalculation of the weight matrix makes things much worse than they would
+        # be without it. Just remove it and try...
+        weight_matrix = calculate_new_weights(weight_matrix, relations)
+
+    stop = time()
+
+    add_seatings(conference, placements)
+    write_seating(conference, filename=destination_filename)
+
+    total_relations = [sum(r) for r in zip(*relation_matrices)]
+
+    # The same calculation that is done in the C code for the global optimization
+    score = sum(itertools.chain(*calculate_new_weights(conference['weight_matrix'], total_relations)))
+    relation_list = create_relation_list(total_relations, conference)
+    add_global_simulation_info(score, total_tests_count, total_iteration_count, stop - start,
+                               relation_list, filename=destination_filename)
 
     pool.close()
     pool.join()
