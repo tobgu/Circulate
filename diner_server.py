@@ -22,13 +22,24 @@ def upload_file():
     if request.method == 'POST':
         file = request.files['file']
         simulation_time = request.form['simulation_time']
+        simulation_method = request.form['simulation_method']
+
+        # The magic numbers in the climb mode are coordinated with the C-code
+        climb_mode = request.form['climb_mode']
+
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             full_filename = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(full_filename)
             result_filename = 'result_' + filename.rsplit('.', 1)[0] + '.xls'
-            run_linear_simulation(full_filename, os.path.join(app.config['RESULT_FOLDER'], result_filename),
-                                  simulation_time=float(simulation_time))
+
+            run_simulation = run_linear_simulation if simulation_method == 'occasion' else run_global_simulation
+
+            run_simulation(full_filename,
+                           os.path.join(app.config['RESULT_FOLDER'], result_filename),
+                           simulation_time=float(simulation_time),
+                           climb_mode=int(climb_mode))
+
             return redirect(url_for('download_file', filename=result_filename))
 
     return '''
@@ -37,21 +48,31 @@ def upload_file():
     <h1>Upload new File</h1>
     <form action="" method=post enctype=multipart/form-data>
       <p>Input file: <input type=file name=file>
-         Simulation time:
-         <select name="simulation_time">
-          <option value="1">1 s</option>
-          <option value="5">5 s</option>
-          <option value="10">10 s</option>
-          <option value="30">30 s</option>
-          <option value="60">1 min</option>
-          <option value="300">5 min</option>
-          <option value="1800">30 min</option>
-          <option value="3600">1 h</option>
-          <option value="21600">6 h</option>
-          <option value="43200">12 h</option>
-          <option value="86400">24 h</option>
-         </select>
-        <input type=submit value=Run>
+      <p>Simulation time:
+      <select name="simulation_time">
+        <option value="1">1 s</option>
+        <option value="5">5 s</option>
+        <option value="10">10 s</option>
+        <option value="30">30 s</option>
+        <option value="60">1 min</option>
+        <option value="300">5 min</option>
+        <option value="1800">30 min</option>
+        <option value="3600">1 h</option>
+        <option value="21600">6 h</option>
+        <option value="43200">12 h</option>
+        <option value="86400">24 h</option>
+      </select>
+      <p>Simulation method:
+      <select name="simulation_method">
+        <option value="global">Global</option>
+        <option value="occasion">Occasion</option>
+      </select>
+      <p>Hill climb:
+      <select name="climb_mode">
+        <option value="1">Always</option>
+        <option value="2">Never</option>
+      </select>
+      <p><input type=submit value=Run>
     </form>
     '''
 

@@ -27,8 +27,8 @@ def adjust_weight_matrix(weights, placement):
 
 
 def calc_occasion_wrapper(args):
-    execution_time, weights, participants, table_sizes = args
-    return calc_occasion(execution_time, weights, participants, table_sizes)
+    execution_time, weights, participants, table_sizes, climb_mode = args
+    return calc_occasion(execution_time, weights, participants, table_sizes, climb_mode)
 
 
 def add_seatings(conference, participants):
@@ -44,11 +44,12 @@ def add_seatings(conference, participants):
 
 
 def calc_conference_wrapper(args):
-    simulation_time, conference = args
+    simulation_time, conference, climb_mode = args
     score, test_count, scramble_count, participants, relations = calc_conference(simulation_time,
                                                                                  conference['weight_matrix'],
                                                                                  conference['guests'],
-                                                                                 conference['table_sizes'])
+                                                                                 conference['table_sizes'],
+                                                                                 climb_mode)
     return {'score': score, 'test_count': test_count, 'scramble_count': scramble_count,
             'participants': participants, 'relations': relations}
 
@@ -57,8 +58,8 @@ def chunks(l, n):
     for i in xrange(0, len(l), n):
         yield l[i:i+n]
 
-def create_relation_list(relations, conference):
 
+def create_relation_list(relations, conference):
     result = []
 
     # relations is a straight list, chunk it down to a matrix like list of lists
@@ -72,14 +73,14 @@ def create_relation_list(relations, conference):
     return sorted(result, key=lambda x: (x[1], x[2]), reverse=True)
 
 
-def run_global_simulation(source_filename, destination_filename, simulation_time):
+def run_global_simulation(source_filename, destination_filename, simulation_time, climb_mode):
     conference = read_conference_data(filename=source_filename)
 
     pool_size = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=pool_size)
 
     start = time()
-    results = pool.map(calc_conference_wrapper, pool_size * [[simulation_time, conference]])
+    results = pool.map(calc_conference_wrapper, pool_size * [[simulation_time, conference, climb_mode]])
     duration = time() - start
 
     pool.close()
@@ -116,7 +117,7 @@ def calculate_new_weights(weight_matrix, relations):
     return list(chunks(flat_matrix, len(weight_matrix)))
 
 
-def run_linear_simulation(source_filename, destination_filename, simulation_time):
+def run_linear_simulation(source_filename, destination_filename, simulation_time, climb_mode):
     conference = read_conference_data(filename=source_filename)
 
     pool_size = multiprocessing.cpu_count()
@@ -140,7 +141,8 @@ def run_linear_simulation(source_filename, destination_filename, simulation_time
                                         pool_size * [[time_to_run,
                                                       weight_matrix,
                                                       conference['guests'][i],
-                                                      conference['table_sizes'][i]]])
+                                                      conference['table_sizes'][i],
+                                                      climb_mode]])
         total_iteration_count += sum(x[0] for x in placement_candidates)
         total_tests_count += sum(x[2] for x in placement_candidates)
 

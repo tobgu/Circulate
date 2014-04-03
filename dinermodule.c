@@ -10,12 +10,16 @@ typedef struct Occasion {
    Py_ssize_t  table_size_count;
 } Occasion;
 
+#define CLIMB_MODE_ALWAYS 1
+#define CLIMB_MODE_NEVER  2
+// #define CLIMB_MODE_LAST   3
 
 typedef struct SimulationData {
    Occasion occasion;
    int* weights;
    int  weight_count;
    double execution_time;
+   int climb_mode;
 } SimulationData;
 
 
@@ -50,7 +54,8 @@ static SimulationData* create_simulation_data(PyObject *args) {
     PyObject *weights, *participants, *table_sizes;
     SimulationData *data = (SimulationData*)malloc(sizeof(SimulationData));
 
-    if (!PyArg_ParseTuple(args, "dOOO", &data->execution_time, &weights, &participants, &table_sizes)) {
+    if (!PyArg_ParseTuple(args, "dOOOi", &data->execution_time, &weights, &participants,
+                          &table_sizes, &data->climb_mode)) {
         return NULL;
     }
 
@@ -105,6 +110,7 @@ typedef struct Conference {
    int *weights;
    Py_ssize_t  weight_count;
    double execution_time;
+   int climb_mode;
 } Conference;
 
 static void destroy_conference(Conference *conference) {
@@ -118,9 +124,9 @@ static Conference* create_conference(PyObject *args) {
     Conference *conference = (Conference*)malloc(sizeof(Conference));
 
 
-    if (!PyArg_ParseTuple(args, "dOOO", &conference->execution_time,
+    if (!PyArg_ParseTuple(args, "dOOOi", &conference->execution_time,
                           &weights, &participants_per_occasion,
-                          &table_sizes_per_occasion)) {
+                          &table_sizes_per_occasion, &conference->climb_mode)) {
         return NULL;
     }
 
@@ -487,12 +493,15 @@ static PyObject *calc_conference(PyObject *self, PyObject *args) {
     long int tests_count = 0;
     long int scramble_count = 0;
 
+    printf("calc_conference, climb_mode=%i", conference->climb_mode);
     double stop_time = get_time() + conference->execution_time;
     while(get_time() < stop_time) {
         scramble_conference(conference, relations);
         scramble_count++;
-        printf("Optimizing\n");
-        tests_count += optimize_conference(conference, relations);
+        if(conference->climb_mode == CLIMB_MODE_ALWAYS) {
+            tests_count += optimize_conference(conference, relations);
+        }
+
         unsigned long int conference_score = calculate_conference_score(conference, relations);
         if(conference_score < best_score) {
             best_score = conference_score;
@@ -535,10 +544,14 @@ static PyObject *calc_occasion(PyObject *self, PyObject *args) {
     double score = calculate_score(data);
     double best_score = score;
 
+    printf("calc_occasion, climb_mode=%i", data->climb_mode);
     while(get_time() < stop_time) {
         scramble(data->occasion.participants, data->occasion.participant_count);
         scramble_count++;
-        tests_count += optimize_occasion(data);
+        if(data->climb_mode == CLIMB_MODE_ALWAYS) {
+            tests_count += optimize_occasion(data);
+        }
+
         score = calculate_score(data);
         if(score < best_score) {
             best_score = score;
@@ -552,7 +565,6 @@ static PyObject *calc_occasion(PyObject *self, PyObject *args) {
     free(best_participants);
     destroy_simulation_data(data);
 
-    printf("Ending function\n");
     return Py_BuildValue("idlOO", scramble_count, best_score, tests_count, best_seating_list, relations);
 }
 
