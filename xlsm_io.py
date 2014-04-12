@@ -17,9 +17,9 @@ def write_seating(conference, filename='seating_out.xls'):
             row += 2
             ws.cell('%s%s' % (col, row)).value = "Table %s" % (i+1)
             ws.cell('%s%s' % (col, row)).style.font.bold = True
-            for participant in sorted(table):
+            for name in sorted([conference['staff_names'][p['id']] for p in table]):
                 row += 1
-                ws.cell('%s%s'%(col, row)).value = participant
+                ws.cell('%s%s' % (col, row)).value = name
 
         ws.column_dimensions[col].width = 20.0
 

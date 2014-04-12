@@ -1,5 +1,6 @@
 import os
-from flask import Flask, request, redirect, url_for
+from flask import Flask, request, redirect, url_for, render_template
+import simplejson
 from werkzeug.utils import secure_filename
 from diner import run_global_simulation, run_linear_simulation
 
@@ -7,15 +8,29 @@ UPLOAD_FOLDER = 'uploads/'
 RESULT_FOLDER = 'results/'
 ALLOWED_EXTENSIONS = set(['xls', 'xlsm'])
 
-app = Flask(__name__)
+
+class CustomFlask(Flask):
+    jinja_options = Flask.jinja_options.copy()
+    jinja_options.update(dict(
+        block_start_string='<%',
+        block_end_string='%>',
+        variable_start_string='%%',
+        variable_end_string='%%',
+        comment_start_string='<#',
+        comment_end_string='#>',
+    ))
+
+app = CustomFlask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['RESULT_FOLDER'] = RESULT_FOLDER
-
 
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
+
+IS_DEVELOP_MODE = True
+import os.path
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
@@ -35,12 +50,28 @@ def upload_file():
 
             run_simulation = run_linear_simulation if simulation_method == 'occasion' else run_global_simulation
 
-            run_simulation(full_filename,
-                           os.path.join(app.config['RESULT_FOLDER'], result_filename),
-                           simulation_time=float(simulation_time),
-                           climb_mode=int(climb_mode))
+            # Solution to avoid having to rerun the simulation all the time
+            if os.path.isfile("cache.json") and IS_DEVELOP_MODE:
+                with open("cache.json", mode='r') as f:
+                    conference_json = f.readline()
+                    staff_names_json = f.readline()
+            else:
+                data = run_simulation(full_filename,
+                               os.path.join(app.config['RESULT_FOLDER'], result_filename),
+                               simulation_time=float(simulation_time),
+                               climb_mode=int(climb_mode))
 
-            return redirect(url_for('download_file', filename=result_filename))
+                conference_json = simplejson.dumps([{'name': name, 'tables': tables} for name, tables in data['conference']['placements'].iteritems()])
+                staff_names_json = simplejson.dumps(data['conference']['staff_names'])
+
+                if IS_DEVELOP_MODE:
+                    with open("cache.json", mode='w') as f:
+                        f.writelines([conference_json + '\n', staff_names_json])
+
+            return render_template('show_participants.html',
+                                   conference=conference_json,
+                                   staff_names=staff_names_json)
+#            return redirect(url_for('download_file', filename=result_filename))
 
     return '''
     <!doctype html>
@@ -187,6 +218,7 @@ from flask import send_from_directory
 @app.route('/downloads/<filename>')
 def download_file(filename):
     return send_from_directory(app.config['RESULT_FOLDER'], filename)
+
 
 
 if __name__ == '__main__':

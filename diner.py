@@ -37,7 +37,7 @@ def add_seatings(conference, participants):
         start = 0
         participants_by_table = []
         for size in table_sizes:
-            participants_by_table.append([conference['staff_names'][p] for p in participants[i][start:start+size]])
+            participants_by_table.append([{'id': p, 'locked': False} for p in participants[i][start:start+size]])
             start += size
 
         conference['placements'][name] = participants_by_table
@@ -96,7 +96,7 @@ def run_global_simulation(source_filename, destination_filename, simulation_time
     add_global_simulation_info(best_result['score'], test_count, scramble_count, duration,
                                relation_list, filename=destination_filename)
 
-
+    return total_data(conference, best_result['score'], test_count, scramble_count, duration, relation_list)
 
         # TODO:
         # - Would be nice to be able to select
@@ -111,10 +111,22 @@ def run_global_simulation(source_filename, destination_filename, simulation_time
         #   seated).
         # - Add a list of all participant sorted by name per event with the table number
         #   after.
+        # - Try to increase the penalty for sitting next to each other multiple times
+        # - Show if constalations of persons have been sitting next to each other at
+        #   multiple occasions (rings of people...)
 
 def calculate_new_weights(weight_matrix, relations):
     flat_matrix = [(w + 1) * (2 ** (r - 1)) if r > 0 else 0 for w, r in zip(itertools.chain(*weight_matrix), relations)]
     return list(chunks(flat_matrix, len(weight_matrix)))
+
+
+def total_data(conference, score, total_tests_count, total_iteration_count, duration, relations):
+    return {'conference': conference,
+            'score': score,
+            'total_tests_count': total_tests_count,
+            'total_iteration_count': total_iteration_count,
+            'duration': duration,
+            'relations': relations}
 
 
 def run_linear_simulation(source_filename, destination_filename, simulation_time, climb_mode):
@@ -164,8 +176,11 @@ def run_linear_simulation(source_filename, destination_filename, simulation_time
     # The same calculation that is done in the C code for the global optimization
     score = sum(itertools.chain(*calculate_new_weights(conference['weight_matrix'], total_relations)))
     relation_list = create_relation_list(total_relations, conference)
-    add_global_simulation_info(score, total_tests_count, total_iteration_count, stop - start,
+    duration = stop - start
+    add_global_simulation_info(score, total_tests_count, total_iteration_count, duration,
                                relation_list, filename=destination_filename)
 
     pool.close()
     pool.join()
+
+    return total_data(conference, score, total_tests_count, total_iteration_count, duration, relation_list)
