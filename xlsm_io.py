@@ -46,7 +46,7 @@ def set_triplet_at_row(ws, row, a, b, c):
     ws.cell('C%s' % row).value = c
 
 
-def add_global_simulation_info(score, tests_count, scramble_count, duration, relation_list, filename):
+def add_global_simulation_info(score, tests_count, scramble_count, duration, relation_list, filename, conference):
     wb = load_workbook(filename=filename)
     ws = wb.create_sheet()
     ws.title = "Statistics"
@@ -60,8 +60,9 @@ def add_global_simulation_info(score, tests_count, scramble_count, duration, rel
     ws.cell('B8').value = "At same table"
     ws.cell('C8').value = "Badness"
     row = 9
-    for (relation, count, badness) in relation_list:
-        set_triplet_at_row(ws, row, relation, count, badness)
+    for (p1, p2, count, badness) in relation_list:
+        set_triplet_at_row(ws, row, '%s - %s' % (conference['staff_names'][p1], conference['staff_names'][p2]),
+                           count, badness)
         row += 1
 
     ws.column_dimensions['A'].width = 30.0

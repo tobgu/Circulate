@@ -532,6 +532,10 @@ static PyObject *create_relation_list(SimulationData *data) {
     return relation_list;
 }
 
+static PyObject *calc_occasion_relations(PyObject *self, PyObject *args) {
+
+}
+
 static PyObject *calc_occasion(PyObject *self, PyObject *args) {
     int scramble_count = 0;
     SimulationData *data = create_simulation_data(args);

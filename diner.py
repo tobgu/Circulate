@@ -66,11 +66,10 @@ def create_relation_list(relations, conference):
     for i, rel in enumerate(chunks(relations, len(conference['staff_names']))):
         for j, count in enumerate(rel[:i]):
             if count > 0:
-                result.append(('%s - %s' % (conference['staff_names'][i], conference['staff_names'][j]),
-                              count, conference['weight_matrix'][i][j]))
+                result.append((i, j, count, conference['weight_matrix'][i][j]))
 
     # Sort on times seated at the same table and badness
-    return sorted(result, key=lambda x: (x[1], x[2]), reverse=True)
+    return sorted(result, key=lambda x: (x[2], x[3]), reverse=True)
 
 
 def run_global_simulation(source_filename, destination_filename, simulation_time, climb_mode):
@@ -94,7 +93,7 @@ def run_global_simulation(source_filename, destination_filename, simulation_time
     write_seating(conference, filename=destination_filename)
     relation_list = create_relation_list(best_result['relations'], conference)
     add_global_simulation_info(best_result['score'], test_count, scramble_count, duration,
-                               relation_list, filename=destination_filename)
+                               relation_list, filename=destination_filename, conference=conference)
 
     return total_data(conference, best_result['score'], test_count, scramble_count, duration, relation_list)
 
@@ -178,7 +177,7 @@ def run_linear_simulation(source_filename, destination_filename, simulation_time
     relation_list = create_relation_list(total_relations, conference)
     duration = stop - start
     add_global_simulation_info(score, total_tests_count, total_iteration_count, duration,
-                               relation_list, filename=destination_filename)
+                               relation_list, filename=destination_filename, conference=conference)
 
     pool.close()
     pool.join()

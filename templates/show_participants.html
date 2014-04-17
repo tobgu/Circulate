@@ -4,93 +4,24 @@
 <head>
   <meta charset="UTF-8">
   <title>Get seated!</title>
+  <link rel="stylesheet" type="text/css" href="/static/styles.css">
 
-  <style>
-	.participant {
-	  font: arial;
-	  margin: 0 5px;
-	  padding: 1px 4px;
-	  border: 2px solid;
-	  border-radius: 5px;
-	  transition: all 0.2s ease;
-	  background: #ADD8E6;
-	  box-shadow: 2px 2px 1px #888888;
-	  font-family: "Arial", Sans-serif;
-	  font-size:0.875em;
-	}
-
-	.drag {
-	  opacity: 0.5;
-	}
-
-	.locked {
-	  background: grey;
-	}
-
-	.over-ok {
-	  background: green;
-	}
-
-	.over-nok {
-	  background: red;
-	}
-
-	.occasion {
-	  float: left;
-	  margin-left: 20px;
-	  font-family: "Arial", Sans-serif;
-	}
-
-	.table-table thead {
-	  font-weight: bold;
-	  font-size:0.875em;
-	  }
-	
-	.table-table tbody { 
-	  font-size:0.875em;
-	  }
-
-    .occasion-button {
-      float: left;
-      }
-
-    .occasion-name {
-	  font-family: "Arial", Sans-serif;
-	  font-size: 1.5em;
-      min-width: 600px;
-      float: left;
-      text-align: center;
-     }
-
-    .table-div {
-      float: left;
-	  background: lightgrey;
-	  background: light-grey;
-	  box-shadow: 1px 1px 1px #888888;
-	  padding: 2px 5px 5px 5px;
-	  margin-bottom: 20px;
-      margin: 10px 5px 10px 5px;
-	  border-radius: 2px;
-	  }
-
-      .clear {
-        height: 0;
-        line-height: 0;
-        overflow: hidden;
-        font-size: 0;
-        clear: left;
-      }
-  </style>
 </head>
 
-<body ng-app="dragDrop" ng-controller="DragDropCtrl" ng-cloak>
-  <div class="occasion">
-    <div>
-	<button class="occasion-button" ng-click="stepOccasion(-1)"><< {{previousOccasion.name}}</button>
-    <span class="occasion-name">{{currentOccasion.name}}</span>
-	<button class="occasion-button" ng-click="stepOccasion(1)">{{nextOccasion.name}} >></button>
-    <div class="clear">&nbsp;</div>
+<body class="seating-app" ng-app="dragDrop" ng-controller="DragDropCtrl" ng-cloak>
+  <div>
+    <div class="logo">Get seated!</div>
+    <div class="control-panel">
+        <button class="button occasion-button">Run</button>
+        <button class="button occasion-button">Download result</button>
+        <button class="button occasion-button">Download locks</button>
+        <button class="button occasion-button" ng-click="stepOccasion(-1)"><< {{previousOccasion.name}}</button>
+        <span class="occasion-name">{{currentOccasion.name}}</span>
+        <button class="button occasion-button" ng-click="stepOccasion(1)">{{nextOccasion.name}} >></button>
+        <div class="clear">&nbsp;</div>
     </div>
+  </div>
+  <div class="occasion">
     <div class="table-div" ng-repeat="table in currentOccasion.tables">
 		<table  class="table-table">
 			<thead>
@@ -112,11 +43,34 @@
 		</table>
 	</div>
   </div>
+  <div class="clear">&nbsp;</div>
+  <div>
+    <table class="relations-table">
+        <thead>
+            <tr>
+                <td>Relation</td><td>Count</td><td>Badness</td><td>Tables</td>
+            </tr>
+        </thead>
+        <tbody>
+            <tr ng-repeat="relation in relations">
+                <td>{{ participant_names[relation[0]] }} - {{ participant_names[relation[1]] }}</td>
+                <td>{{ relation[2] }}</td>
+                <td>{{ relation[3] }}</td>
+                <td>-</td>
+            </tr>
+        </tbody>
+    </table>
+  </div>
 </body>
 
   <script src='/static/angular.min.js'></script>
 
   <script>
+
+// $.post('/create_binary_file.php', postData, function(retData) {
+//   $("body").append("<iframe src='" + retData.url+ "' style='display: none;' ></iframe>");
+// });
+
     var app = angular.module('dragDrop', []);
 
 	app.directive('switchable', function() {
@@ -255,12 +209,14 @@
 					  {name: "Monday", tables: [[{id: 4, locked: false}, {id: 5, locked: false}],
 					                            [{id: 6, locked: false}, {id: 7, locked: false}, {id: 8, locked: false}]]}];
 
- 	var participant_names = %%staff_names|safe%%
-    var conference = %%conference|safe%%
+ 	var participant_names = %%staff_names|safe%%;
+    var conference = %%conference|safe%%;
+    var relations = %%relations|safe%%;
 
 	app.controller('DragDropCtrl', function($scope) {
 	  $scope.conference = conference;
 	  $scope.participant_names = participant_names;
+	  $scope.relations = relations;
 	  $scope.currentOccasionIx = 0;
 	  $scope.stepOccasion = function(direction) {
 	     $scope.currentOccasionIx = ($scope.currentOccasionIx + direction + $scope.conference.length) % $scope.conference.length;
