@@ -49,7 +49,7 @@ def print_seatings(conference):
 def large_test(conference):
     start = time()
     score, tests_count, scramble_count, participants, relations = calc_conference(1.0, conference['weight_matrix'],
-                                                                  conference['guests'], conference['table_sizes'])
+                                                                  conference['guests'], conference['table_sizes'], 1)
     conference_optimized = time()
     print "Calc conference: time=%s, score=%s, tests_count=%s, scramble_count=%s, participants=%s" % (conference_optimized - start,
                                                                                    score,
@@ -101,5 +101,5 @@ if __name__ == '__main__':
     conference_read = time()
     print "Done, time=%s" % (conference_read - start)
 
-#    large_test(conference)
-    large_linear_test(conference)
+    large_test(conference)
+#    large_linear_test(conference)

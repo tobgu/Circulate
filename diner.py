@@ -72,26 +72,29 @@ def create_relation_list(relations, conference):
     return sorted(result, key=lambda x: (x[2], x[3]), reverse=True)
 
 
-def run_global_simulation(source_filename, destination_filename, simulation_time, climb_mode):
-    conference = read_conference_data(filename=source_filename)
-
+def do_run_global_simulation(climb_mode, conference, simulation_time):
     pool_size = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=pool_size)
-
     start = time()
     results = pool.map(calc_conference_wrapper, pool_size * [[simulation_time, conference, climb_mode]])
     duration = time() - start
-
     pool.close()
     pool.join()
-
     best_result = min(results, key=lambda r: r['score'])
     test_count = sum(r['test_count'] for r in results)
     scramble_count = sum(r['scramble_count'] for r in results)
+    relation_list = create_relation_list(best_result['relations'], conference)
+    return best_result, duration, relation_list, scramble_count, test_count
+
+
+def run_global_simulation(source_filename, destination_filename, simulation_time, climb_mode):
+    conference = read_conference_data(filename=source_filename)
+
+    best_result, duration, relation_list, scramble_count, test_count = \
+        do_run_global_simulation(climb_mode, conference, simulation_time)
 
     add_seatings(conference, best_result['participants'])
     write_seating(conference, filename=destination_filename)
-    relation_list = create_relation_list(best_result['relations'], conference)
     add_global_simulation_info(best_result['score'], test_count, scramble_count, duration,
                                relation_list, filename=destination_filename, conference=conference)
 
@@ -114,6 +117,7 @@ def run_global_simulation(source_filename, destination_filename, simulation_time
         # - Show if constalations of persons have been sitting next to each other at
         #   multiple occasions (rings of people...)
 
+
 def calculate_new_weights(weight_matrix, relations):
     flat_matrix = [(w + 1) * (2 ** (r - 1)) if r > 0 else 0 for w, r in zip(itertools.chain(*weight_matrix), relations)]
     return list(chunks(flat_matrix, len(weight_matrix)))
@@ -128,29 +132,30 @@ def total_data(conference, score, total_tests_count, total_iteration_count, dura
             'relations': relations}
 
 
-def run_linear_simulation(source_filename, destination_filename, simulation_time, climb_mode):
-    conference = read_conference_data(filename=source_filename)
-
+# In:
+# - List of participants per occasion and if they are locked (to the position that they are currently at)
+# - List of table sizes for each table at each occasion
+# - Weight matrix
+#
+# Out:
+# - Placements, list of list of tables with participants
+# - Seating list, high score (a list of relation matrices?)
+def do_run_linear_simulation(climb_mode, conference, simulation_time):
     pool_size = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=pool_size)
-
-    occasion_count = len(conference['seating_names'])
-    execution_time = simulation_time / occasion_count
-
     placements = []
     relation_matrices = []
     total_iteration_count = 0
     total_tests_count = 0
+    occasion_count = len(len(conference['table_sizes']))
+    execution_time = simulation_time / occasion_count
 
-    weight_matrix = conference['weight_matrix']
-    start = time()
     for i in range(occasion_count):
-
         # No use to waste CPU cycles if there is only one table, we can't do anything
         time_to_run = execution_time if len(conference['table_sizes'][i]) > 0 else 0.0
         placement_candidates = pool.map(calc_occasion_wrapper,
                                         pool_size * [[time_to_run,
-                                                      weight_matrix,
+                                                      conference['weight_matrix'],
                                                       conference['guests'][i],
                                                       conference['table_sizes'][i],
                                                       climb_mode]])
@@ -161,25 +166,32 @@ def run_linear_simulation(source_filename, destination_filename, simulation_time
         placements.append(seatings)
         relation_matrices.append(relations)
 
-        # This recalculation of the weight matrix makes things much worse than they would
-        # be without it. Just remove it and try...
-        weight_matrix = calculate_new_weights(weight_matrix, relations)
-
-    stop = time()
-
-    add_seatings(conference, placements)
-    write_seating(conference, filename=destination_filename)
+    pool.close()
+    pool.join()
 
     total_relations = [sum(r) for r in zip(*relation_matrices)]
 
     # The same calculation that is done in the C code for the global optimization
     score = sum(itertools.chain(*calculate_new_weights(conference['weight_matrix'], total_relations)))
     relation_list = create_relation_list(total_relations, conference)
+
+    return placements, relation_list, score, total_iteration_count, total_tests_count
+
+
+def run_linear_simulation(source_filename, destination_filename, simulation_time, climb_mode):
+    conference = read_conference_data(filename=source_filename)
+
+    start = time()
+    placements, relation_list, score, total_iteration_count, total_tests_count = \
+        do_run_linear_simulation(climb_mode, conference, simulation_time)
+    stop = time()
+
     duration = stop - start
+
+    add_seatings(conference, placements)
+    write_seating(conference, filename=destination_filename)
+
     add_global_simulation_info(score, total_tests_count, total_iteration_count, duration,
                                relation_list, filename=destination_filename, conference=conference)
-
-    pool.close()
-    pool.join()
 
     return total_data(conference, score, total_tests_count, total_iteration_count, duration, relation_list)
