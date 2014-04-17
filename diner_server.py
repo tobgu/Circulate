@@ -2,11 +2,12 @@ import os
 from flask import Flask, request, redirect, url_for, render_template
 import simplejson
 from werkzeug.utils import secure_filename
-from diner import run_global_simulation, run_linear_simulation
+from diner import run_global_simulation
 
 UPLOAD_FOLDER = 'uploads/'
 RESULT_FOLDER = 'results/'
 ALLOWED_EXTENSIONS = set(['xls', 'xlsm'])
+IS_DEVELOP_MODE = False
 
 
 class CustomFlask(Flask):
@@ -29,16 +30,11 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
-
-IS_DEVELOP_MODE = True
-import os.path
-
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
         file = request.files['file']
         simulation_time = request.form['simulation_time']
-        simulation_method = request.form['simulation_method']
 
         # The magic numbers in the climb mode are coordinated with the C-code
         climb_mode = request.form['climb_mode']
@@ -49,8 +45,6 @@ def upload_file():
             file.save(full_filename)
             result_filename = 'result_' + filename.rsplit('.', 1)[0] + '.xls'
 
-            run_simulation = run_linear_simulation if simulation_method == 'occasion' else run_global_simulation
-
             # Solution to avoid having to rerun the simulation all the time
             if os.path.isfile("cache.json") and IS_DEVELOP_MODE:
                 with open("cache.json", mode='r') as f:
@@ -58,7 +52,7 @@ def upload_file():
                     staff_names_json = f.readline()
                     relations_json = f.readline()
             else:
-                data = run_simulation(full_filename,
+                data = run_global_simulation(full_filename,
                                os.path.join(app.config['RESULT_FOLDER'], result_filename),
                                simulation_time=float(simulation_time),
                                climb_mode=int(climb_mode))
@@ -111,13 +105,6 @@ def upload_file():
                   </select>
                  </span>
               </label>
-              <label>
-                <span>Simulation method:</span>
-                  <select name="simulation_method">
-                    <option value="global">Whole conference</option>
-                    <option value="occasion">Occasion by occasion</option>
-                  </select>
-              <label>
               <label>
                 <span>Hill climb:</span>
                   <select name="climb_mode">

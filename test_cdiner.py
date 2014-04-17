@@ -1,5 +1,4 @@
-from dinerc import calc_occasion, calc_conference
-import itertools
+from dinerc import calc_conference
 from diner import add_seatings, create_relation_list
 from xlsm_io import read_conference_data, write_seating
 from time import time
@@ -65,33 +64,6 @@ def large_test(conference):
     print "Conference written %s" % (time() - seatings_grouped)
 
     create_relation_list(relations, conference)
-
-
-def large_linear_test(conference):
-    occasion_count = len(conference['seating_names'])
-
-    placements = []
-    relation_matrices = []
-    for i in range(occasion_count):
-        iterations, score, tests_count, seatings, relations = calc_occasion(0.5,
-                                                  conference['weight_matrix'],
-                                                  conference['guests'][i],
-                                                  conference['table_sizes'][i])
-        placements.append(seatings)
-        relation_matrices.append(relations)
-        print "iterations: %s, score: %s, tests_count: %s, seatings: %s, relations: %s" % (iterations,
-                                                                            score,
-                                                                            tests_count,
-                                                                            seatings,
-                                                                            len(relations))
-
-    add_seatings(conference, placements)
-    total_relations = [sum(r) for r in zip(*relation_matrices)]
-
-    # The same calculation that is done in the C code for the global optimization
-    score = sum((w + 1) * (2 ** (r - 1)) if r > 0 else 0 for w, r in zip(itertools.chain(*conference['weight_matrix']), total_relations))
-    print create_relation_list(total_relations, conference)
-    print "Total score: %s" % score
 
 
 if __name__ == '__main__':
