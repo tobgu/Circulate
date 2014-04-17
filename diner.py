@@ -22,17 +22,26 @@ def add_seatings(conference, participants):
         start = 0
         participants_by_table = []
         for size in table_sizes:
-            participants_by_table.append([{'id': p, 'locked': False} for p in participants[i][start:start+size]])
+            participants_by_table.append([{'id': p, 'fix': False} for p in participants[i][start:start+size]])
             start += size
 
         conference['placements'][name] = participants_by_table
 
 
+def guest_properties(guests_per_occasion, property_name):
+    return [[g[property_name] for g in occasion] for occasion in guests_per_occasion]
+
+
 def calc_conference_wrapper(args):
     simulation_time, conference, climb_mode = args
+    guest_ids = guest_properties(conference['guests'], 'id')
+    guest_fix_indicators = guest_properties(conference['guests'], 'fix')
+
+    # TODO: Add lock list as an argument to the calc conference
     score, test_count, scramble_count, participants, relations = calc_conference(simulation_time,
                                                                                  conference['weight_matrix'],
-                                                                                 conference['guests'],
+                                                                                 guest_ids,
+                                                                                 guest_fix_indicators,
                                                                                  conference['table_sizes'],
                                                                                  climb_mode)
     return {'score': score, 'test_count': test_count, 'scramble_count': scramble_count,

@@ -30,6 +30,11 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
+@app.route('/simulate', methods=['POST'])
+def simulate():
+    # TODO: Get data from the JSON reply, run simulation
+    pass
+
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
@@ -127,8 +132,6 @@ from flask import send_from_directory
 @app.route('/downloads/<filename>')
 def download_file(filename):
     return send_from_directory(app.config['RESULT_FOLDER'], filename)
-
-
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=int("8000"), debug=True)

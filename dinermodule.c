@@ -5,6 +5,7 @@
 
 typedef struct Occasion {
    int* participants;
+   int* fix_indicators;
    Py_ssize_t  participant_count;
    int* table_sizes;
    Py_ssize_t  table_size_count;
@@ -46,15 +47,18 @@ static void destroy_occasions(Occasion *occasions, int occasion_count) {
     for(int i=0; i<occasion_count; i++) {
         free(occasions[i].participants);
         free(occasions[i].table_sizes);
+        free(occasions[i].fix_indicators);
     }
 
     free(occasions);
 }
 
 static Py_ssize_t create_occasions(PyObject *participants_per_occasion,
+                                   PyObject *fix_indicators_per_occasion,
                                    PyObject *table_sizes_per_occasion,
                                    Occasion **occasions) {
     PyObject *outer_participants = PySequence_Fast(participants_per_occasion, "expected a sequence");
+    PyObject *outer_fix_indicators = PySequence_Fast(fix_indicators_per_occasion, "expected a sequence");
     PyObject *outer_table_sizes = PySequence_Fast(table_sizes_per_occasion, "expected a sequence");
 
     Py_ssize_t occasion_count = PySequence_Size(participants_per_occasion);
@@ -64,6 +68,9 @@ static Py_ssize_t create_occasions(PyObject *participants_per_occasion,
     for (Py_ssize_t i = 0; i < occasion_count; i++) {
         (*occasions)[i].participant_count = pylist_to_array(PyList_GET_ITEM(outer_participants, i),
                                                            &((*occasions)[i].participants));
+
+        pylist_to_array(PyList_GET_ITEM(outer_fix_indicators, i),
+                                        &((*occasions)[i].fix_indicators));
 
         (*occasions)[i].table_size_count = pylist_to_array(PyList_GET_ITEM(outer_table_sizes, i),
                                                            &((*occasions)[i].table_sizes));
@@ -88,18 +95,19 @@ static void destroy_conference(Conference *conference) {
 }
 
 static Conference* create_conference(PyObject *args) {
-    PyObject *weights, *participants_per_occasion, *table_sizes_per_occasion;
+    PyObject *weights, *participants_per_occasion, *fix_indicators_per_occasion, *table_sizes_per_occasion;
     Conference *conference = (Conference*)malloc(sizeof(Conference));
 
 
-    if (!PyArg_ParseTuple(args, "dOOOi", &conference->execution_time,
+    if (!PyArg_ParseTuple(args, "dOOOOi", &conference->execution_time,
                           &weights, &participants_per_occasion,
+                          &fix_indicators_per_occasion,
                           &table_sizes_per_occasion, &conference->climb_mode)) {
         return NULL;
     }
 
-    conference->occasion_count = create_occasions(participants_per_occasion, table_sizes_per_occasion,
-                                                  &conference->occasions);
+    conference->occasion_count = create_occasions(participants_per_occasion, fix_indicators_per_occasion,
+                                                  table_sizes_per_occasion, &conference->occasions);
     conference->weight_count = pylistlist_to_array(weights, &conference->weights);
 
     return conference;
@@ -152,6 +160,7 @@ static void destroy_relation_matrix(int* matrix) {
 }
 
 static int* scramble_conference(Conference *conference, int *relations) {
+    // TODO: Support fixed participants
     /* The relations matrix contains a count of the number of times that each person
        has been sitting at the same table as another person at the conference.
        It is really just a redundant (but easier to work with when running optimizations)
@@ -297,6 +306,7 @@ Loop over all tables at all occasions
                int t2_offset = t1_offset + data.table_sizes[t1_ix];
                for(int t2_ix=t1_ix+1; t2_ix<data.table_size_count; t2_ix++) {
                   for(int p2_ix=t2_offset; p2_ix<t2_offset+data.table_sizes[t2_ix]; p2_ix++) {
+                     # TODO: Support fixed participants
                      int diff = calculate_switch(p1_ix - t1_offset, &(data.participants[t1_offset]), data.table_sizes[t1_ix],
                                                  p2_ix - t2_offset, &(data.participants[t2_offset]), data.table_sizes[t2_ix],
                                                  relations, conference);

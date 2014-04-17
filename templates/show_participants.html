@@ -33,11 +33,11 @@
 				<tr ng-repeat="participant in table">
 					<td>
                         <div switchable conference="conference" drop="handleDrop" participant-ix="$index" table-ix="$parent.$index"
-                             occasion-ix="currentOccasionIx" class="participant" ng-class="{ 'locked' : currentOccasion.tables[$parent.$index][$index].locked }">
+                             occasion-ix="currentOccasionIx" class="participant" ng-class="{ 'fix' : currentOccasion.tables[$parent.$index][$index].fix }">
                             {{ participant_names[participant.id] }}
                         </div>
                     </td>
-				<!-- conference[occasionIx].tables[tableIx][participantIx].locked == true -->
+				<!-- conference[occasionIx].tables[tableIx][participantIx].fix == true -->
 				</tr>
 			</tbody>
 		</table>
@@ -91,7 +91,7 @@
 			  sourceParticipant = scope.conference[scope.conference.dragSourceOccasionIx].tables[scope.conference.dragSourceTableIx][scope.conference.dragSourceParticipantIx];
 			  targetParticipant = scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx];
 
-			  if ((scope.conference.dragSourceOccasionIx != scope.occasionIx || sourceParticipant.locked || targetParticipant.locked) && (sourceParticipant != targetParticipant)) {
+			  if ((scope.conference.dragSourceOccasionIx != scope.occasionIx || sourceParticipant.fix || targetParticipant.fix) && (sourceParticipant != targetParticipant)) {
 				target.classList.add('over-nok');
 			  } else {
 				target.classList.add('over-ok');			  
@@ -142,7 +142,7 @@
 			  sourceParticipant = scope.conference[scope.conference.dragSourceOccasionIx].tables[scope.conference.dragSourceTableIx][scope.conference.dragSourceParticipantIx];
 			  targetParticipant = scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx];
 
-			  if (scope.conference.dragSourceOccasionIx != scope.occasionIx || sourceParticipant.locked || targetParticipant.locked) {
+			  if (scope.conference.dragSourceOccasionIx != scope.occasionIx || sourceParticipant.fix || targetParticipant.fix) {
 				return false;
 			  }			  
 			  
@@ -164,7 +164,7 @@
 				console.log("Starting to drag: " + scope.occasionIx + ", " + scope.tableIx + ", " + scope.participantIx);
 				e.dataTransfer.effectAllowed = 'move';
 
-                // Using varibles directly on the scope for communicating which participant
+                // Using variables directly on the scope for communicating which participant
                 // is dragged is a hack to work around that Chrome won't allow access to the
                 // data in the dataTransfer object for all states.
                 scope.conference.dragSourceOccasionIx = scope.occasionIx;
@@ -190,7 +190,7 @@
 			  'click',
 			  function(e) {
 				scope.$apply(function(scope) {
-				  scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx].locked = !scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx].locked;
+				  scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx].fix = !scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx].fix;
 			    });
     			
 				return false;
@@ -204,10 +204,10 @@
 
 	// Conference is made up of occasions with names
 	var xparticipant_names = ["John Doe", "Tom Bom", "Niel Fish", "Locky Bastard", "Joe Johnson", "Any One", "Bom Bom", "Bam Bam", "Pete"];
-	var xconference = [{name: "Sunday", tables: [[{id: 0, locked: false}, {id: 2, locked: false}],
-	                                            [{id: 2, locked: false}, {id: 3, locked: true}]]},
-					  {name: "Monday", tables: [[{id: 4, locked: false}, {id: 5, locked: false}],
-					                            [{id: 6, locked: false}, {id: 7, locked: false}, {id: 8, locked: false}]]}];
+	var xconference = [{name: "Sunday", tables: [[{id: 0, fix: false}, {id: 2, fix: false}],
+	                                            [{id: 2, fix: false}, {id: 3, fix: true}]]},
+					  {name: "Monday", tables: [[{id: 4, fix: false}, {id: 5, fix: false}],
+					                            [{id: 6, fix: false}, {id: 7, fix: false}, {id: 8, fix: false}]]}];
 
  	var participant_names = %%staff_names|safe%%;
     var conference = %%conference|safe%%;
@@ -218,6 +218,7 @@
 	  $scope.participant_names = participant_names;
 	  $scope.relations = relations;
 	  $scope.currentOccasionIx = 0;
+
 	  $scope.stepOccasion = function(direction) {
 	     $scope.currentOccasionIx = ($scope.currentOccasionIx + direction + $scope.conference.length) % $scope.conference.length;
          $scope.currentOccasion = $scope.conference[$scope.currentOccasionIx];

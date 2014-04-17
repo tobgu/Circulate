@@ -101,5 +101,5 @@ def staff_info(wb):
 
 def guests_per_seating(wb):
     guests = wb['Guests']
-    seatings = [[i for i, r in enumerate(c[2:]) if r.value] for c in guests.columns[1:]]
+    seatings = [[{'id': i, 'fix': False} for i, r in enumerate(c[2:]) if r.value] for c in guests.columns[1:]]
     return seatings
