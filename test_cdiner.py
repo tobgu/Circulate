@@ -1,5 +1,5 @@
 from dinerc import calc_conference
-from diner import add_seatings, create_relation_list
+from diner import add_seatings, create_relation_list, calc_conference_wrapper
 from xlsm_io import read_conference_data, write_seating
 from time import time
 
@@ -9,17 +9,45 @@ def print_relations(relations, dimension_size):
 
 
 def small_test():
-    weight_matrix = [[1, 2, 3, 3],
-                     [4, 5, 6, 7],
-                     [7, 8, 9, 10],
-                     [17, 18, 19, 11]]
-#    print calc_tables(1.0, weight_matrix, [1, 2, 3, 4], [3, 1])
+    conference = {}
+    conference['weight_matrix'] = [[1, 2, 3, 3],
+                                   [4, 5, 6, 7],
+                                   [7, 8, 9, 10],
+                                   [17, 18, 19, 11]]
 
-    participants = [[0, 1, 2], [1, 2, 3]]
-    tables = [[1, 2], [2, 1]]
-    score, participants, relations = calc_conference(1.0, 5, weight_matrix, participants, tables)
+    conference['guests'] = [[{'id': 0, 'fix': False}, {'id': 1, 'fix': False}, {'id': 2, 'fix': False}],
+                            [{'id': 1, 'fix': False}, {'id': 2, 'fix': False}, {'id': 3, 'fix': False}]]
+    conference['table_sizes'] = [[1, 2], [2, 1]]
+
+    result = calc_conference_wrapper((1.0, conference, 1))
+
+    # This is the expected result when no participants have been fixed
+    assert result['participants'][0][0] == 2
+
+    # Fix participant 0 and rerun the test
+    conference['guests'][0][0]['fix'] = True
+    result = calc_conference_wrapper((1.0, conference, 1))
+    assert result['participants'][0][0] == 0
+
+    # Now fix participant 2 and rerun the test
+    conference['guests'][0][0]['fix'] = False
+    conference['guests'][0][2]['fix'] = True
+
+    # This time a switch is performed but it is less optimal than if we could choose freely
+    result = calc_conference_wrapper((1.0, conference, 1))
+    assert result['participants'][0][0] == 1
+
+
+    score = result['score']
+#    tests_count = result['test_count']
+#    scramble_count = result['scramble_count']
+    participants = result['participants']
+    relations = result['relations']
+
+#    score, participants, relations = calc_conference(1.0, 5, weight_matrix, participants, tables)
+
     print "Calc conference: %s, %s" % (score, participants)
-    print_relations(relations, len(weight_matrix))
+    print_relations(relations, len(conference['weight_matrix']))
 
 
 def print_seatings(conference):
@@ -47,8 +75,16 @@ def print_seatings(conference):
 
 def large_test(conference):
     start = time()
-    score, tests_count, scramble_count, participants, relations = calc_conference(1.0, conference['weight_matrix'],
-                                                                  conference['guests'], conference['table_sizes'], 1)
+    result = calc_conference_wrapper((1.0, conference, 1))
+
+    score = result['score']
+    tests_count = result['test_count']
+    scramble_count = result['scramble_count']
+    participants = result['participants']
+    relations = result['relations']
+
+#    score, tests_count, scramble_count, participants, relations = calc_conference(1.0, conference['weight_matrix'],
+#                                                                  conference['guests'], conference['table_sizes'], 1)
     conference_optimized = time()
     print "Calc conference: time=%s, score=%s, tests_count=%s, scramble_count=%s, participants=%s" % (conference_optimized - start,
                                                                                    score,
@@ -67,11 +103,11 @@ def large_test(conference):
 
 
 if __name__ == '__main__':
-    start = time()
-    print "Reading conference data"
-    conference = read_conference_data()
-    conference_read = time()
-    print "Done, time=%s" % (conference_read - start)
+#    start = time()
+#    print "Reading conference data"
+#    conference = read_conference_data()
+#    conference_read = time()
+#    print "Done, time=%s" % (conference_read - start)
 
-    large_test(conference)
-#    large_linear_test(conference)
+#    large_test(conference)
+    small_test()

@@ -6,16 +6,6 @@ from xlsm_io import read_conference_data, write_seating, add_global_simulation_i
 from dinerc import calc_conference
 
 
-def calc_weight_matrix():
-    eater_count = 200
-    eaters = ['eater %s' % i for i in range(eater_count)]
-    group_weights = [2, 1, 5, 2, 3, 1, 10, 2, 4, 7]
-    group_participation = [[w if random() < 0.5 else 0 for w in group_weights] for _ in eaters]
-    weight_matrix = [[sum(gj * gi for gj, gi in zip(group_participation[j], group_participation[i]))
-                      for j, _ in enumerate(eaters)] for i, _ in enumerate(eaters)]
-    return weight_matrix
-
-
 def add_seatings(conference, participants):
     conference['placements'] = OrderedDict()
     for i, (name, table_sizes) in enumerate(zip(conference['seating_names'], conference['table_sizes'])):
@@ -37,7 +27,6 @@ def calc_conference_wrapper(args):
     guest_ids = guest_properties(conference['guests'], 'id')
     guest_fix_indicators = guest_properties(conference['guests'], 'fix')
 
-    # TODO: Add lock list as an argument to the calc conference
     score, test_count, scramble_count, participants, relations = calc_conference(simulation_time,
                                                                                  conference['weight_matrix'],
                                                                                  guest_ids,
@@ -101,7 +90,6 @@ def run_global_simulation(source_filename, destination_filename, simulation_time
         #   * Optimization on best scramble
         # - Some way of specifying a multiplication factor for the relations to push
         #   persons away from each other?
-        # - Some basic styling of the input form (bootstrap?)
         # - Add a pivot table showing the number of relations by times they were seated
         #   together (their score in the relation matrix, right now the number of times
         #   seated).

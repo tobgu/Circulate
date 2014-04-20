@@ -119,13 +119,17 @@ static double get_time(void) {
     return (double)tv.tv_sec + (0.000001f * tv.tv_usec);
 }
 
-static void scramble(int *buf, int length) {
+static void scramble(int *buf, int *fix_indicators, int length) {
     int from_index, temp;
     for(int i = length - 1; i > 0; i--) {
         from_index = rand() % (i + 1);
-        temp = buf[i];
-        buf[i] = buf[from_index];
-        buf[from_index] = temp;
+
+        // The randomness will break down if a large proportion of the population is fixed
+        if((fix_indicators[i] != 0) && (fix_indicators[from_index] != 0)) {
+            temp = buf[i];
+            buf[i] = buf[from_index];
+            buf[from_index] = temp;
+        }
     }
 }
 
@@ -160,14 +164,14 @@ static void destroy_relation_matrix(int* matrix) {
 }
 
 static int* scramble_conference(Conference *conference, int *relations) {
-    // TODO: Support fixed participants
     /* The relations matrix contains a count of the number of times that each person
        has been sitting at the same table as another person at the conference.
        It is really just a redundant (but easier to work with when running optimizations)
        representation of the tables and their participants. */
     clear_relation_matrix(relations, conference->weight_count);
     for(int i=0; i<conference->occasion_count; i++) {
-        scramble(conference->occasions[i].participants, conference->occasions[i].participant_count);
+        scramble(conference->occasions[i].participants, conference->occasions[i].fix_indicators,
+                 conference->occasions[i].participant_count);
         update_relations(relations, conference->weight_count, &(conference->occasions[i]));
     }
 
@@ -303,10 +307,17 @@ Loop over all tables at all occasions
          int t1_offset = 0;
          for(int t1_ix=0; t1_ix<data.table_size_count; t1_ix++) {
             for(int p1_ix=t1_offset; p1_ix<t1_offset+data.table_sizes[t1_ix]; p1_ix++) {
+               if(data.fix_indicators[p1_ix]) {
+                  continue;
+               }
+
                int t2_offset = t1_offset + data.table_sizes[t1_ix];
                for(int t2_ix=t1_ix+1; t2_ix<data.table_size_count; t2_ix++) {
                   for(int p2_ix=t2_offset; p2_ix<t2_offset+data.table_sizes[t2_ix]; p2_ix++) {
-                     # TODO: Support fixed participants
+                     if(data.fix_indicators[p2_ix]) {
+                        continue;
+                     }
+
                      int diff = calculate_switch(p1_ix - t1_offset, &(data.participants[t1_offset]), data.table_sizes[t1_ix],
                                                  p2_ix - t2_offset, &(data.participants[t2_offset]), data.table_sizes[t2_ix],
                                                  relations, conference);
@@ -395,7 +406,7 @@ static PyObject *calc_conference(PyObject *self, PyObject *args) {
     long int tests_count = 0;
     long int scramble_count = 0;
 
-    printf("calc_conference, climb_mode=%i", conference->climb_mode);
+    printf("calc_conference, climb_mode=%i\n", conference->climb_mode);
     double stop_time = get_time() + conference->execution_time;
     while(get_time() < stop_time) {
         scramble_conference(conference, relations);
