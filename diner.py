@@ -1,9 +1,12 @@
 from collections import OrderedDict
-from random import random
 import multiprocessing
 from time import time
+import itertools
 from xlsm_io import read_conference_data, write_seating, add_global_simulation_info
 from dinerc import calc_conference
+
+CLIMB_MODE_ALWAYS = 1
+CLIMB_MODE_NEVER = 2
 
 
 def add_seatings(conference, participants):
@@ -12,7 +15,7 @@ def add_seatings(conference, participants):
         start = 0
         participants_by_table = []
         for size in table_sizes:
-            participants_by_table.append([{'id': p, 'fix': False} for p in participants[i][start:start+size]])
+            participants_by_table.append(participants[i][start:start+size])
             start += size
 
         conference['placements'][name] = participants_by_table
@@ -24,6 +27,7 @@ def guest_properties(guests_per_occasion, property_name):
 
 def calc_conference_wrapper(args):
     simulation_time, conference, climb_mode = args
+#    print conference['guests']
     guest_ids = guest_properties(conference['guests'], 'id')
     guest_fix_indicators = guest_properties(conference['guests'], 'fix')
 
@@ -33,6 +37,13 @@ def calc_conference_wrapper(args):
                                                                                  guest_fix_indicators,
                                                                                  conference['table_sizes'],
                                                                                  climb_mode)
+
+    # Should be safe to set the fix indicators based on what is in the input since the fixed
+    # participants don't move.
+    participants = [[{'id': id, 'fix': participant['fix']} for id, participant in zip(result_occasion, input_occasion)]
+                    for result_occasion, input_occasion in zip(participants, conference['guests'])]
+
+
     return {'score': score, 'test_count': test_count, 'scramble_count': scramble_count,
             'participants': participants, 'relations': relations}
 
@@ -42,11 +53,23 @@ def chunks(l, n):
         yield l[i:i+n]
 
 
+# table_sizes: list of list with sizes for each occasion
+def seatings_to_guest_list(seatings):
+    table_sizes = []
+    seating_names = []
+    guests = []
+    for seating in seatings:
+        table_sizes.append([len(t) for t in seating['tables']])
+        seating_names.append(seating['name'])
+        guests.append(list(itertools.chain(*seating['tables'])))
+
+    return guests, table_sizes, seating_names
+
 def create_relation_list(relations, conference):
     result = []
 
     # relations is a straight list, chunk it down to a matrix like list of lists
-    for i, rel in enumerate(chunks(relations, len(conference['staff_names']))):
+    for i, rel in enumerate(chunks(relations, len(conference['weight_matrix']))):
         for j, count in enumerate(rel[:i]):
             if count > 0:
                 result.append((i, j, count, conference['weight_matrix'][i][j]))

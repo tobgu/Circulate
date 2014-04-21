@@ -12,9 +12,9 @@
   <div>
     <div class="logo">Get seated!</div>
     <div class="control-panel">
-        <button class="button occasion-button">Run</button>
+        <button class="button occasion-button" ng-click="runSimulation()">Run</button>
         <button class="button occasion-button">Download result</button>
-        <button class="button occasion-button">Download locks</button>
+<!--        <button class="button occasion-button">Download locks</button> -->
         <button class="button occasion-button" ng-click="stepOccasion(-1)"><< {{previousOccasion.name}}</button>
         <span class="occasion-name">{{currentOccasion.name}}</span>
         <button class="button occasion-button" ng-click="stepOccasion(1)">{{nextOccasion.name}} >></button>
@@ -33,7 +33,7 @@
 				<tr ng-repeat="participant in table">
 					<td>
                         <div switchable conference="conference" drop="handleDrop" participant-ix="$index" table-ix="$parent.$index"
-                             occasion-ix="currentOccasionIx" class="participant" ng-class="{ 'fix' : currentOccasion.tables[$parent.$index][$index].fix }">
+                             occasion-ix="currentOccasionIx" class="participant" ng-class="{ 'fix' : participant.fix }">
                             {{ participant_names[participant.id] }}
                         </div>
                     </td>
@@ -147,7 +147,8 @@
 			  }			  
 			  
 			  scope.$apply(function(scope) {
-				  // Switch the data rather than the actual DOM elements				  
+				  // Switch the data rather than the actual DOM elements
+                  console.log("Dropping");
 				  scope.conference[scope.conference.dragSourceOccasionIx].tables[scope.conference.dragSourceTableIx][scope.conference.dragSourceParticipantIx] = targetParticipant
 				  scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx] = sourceParticipant
 			  });
@@ -190,6 +191,8 @@
 			  'click',
 			  function(e) {
 				scope.$apply(function(scope) {
+				  console.log("Clicking!")
+				  console.log(scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx])
 				  scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx].fix = !scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx].fix;
 			    });
     			
@@ -212,8 +215,9 @@
  	var participant_names = %%staff_names|safe%%;
     var conference = %%conference|safe%%;
     var relations = %%relations|safe%%;
+    var weight_matrix = %%weight_matrix|safe%%;
 
-	app.controller('DragDropCtrl', function($scope) {
+	app.controller('DragDropCtrl', function($scope,  $http) {
 	  $scope.conference = conference;
 	  $scope.participant_names = participant_names;
 	  $scope.relations = relations;
@@ -227,6 +231,32 @@
 	  };
 
 	  $scope.stepOccasion(0);
+
+	  $scope.runSimulation = function() {
+	     $http({method: 'POST', url: '/simulate',
+	            data: {conference: $scope.conference, weight_matrix: weight_matrix},
+	            headers: {"Content-Type": "application/json"}}).
+            success(function(data, status, headers, config) {
+                console.log("Received response");
+
+                // Copy into the original conference object to avoid that the references
+                // to the conference from the directives are not lost
+                for(var i = 0; i < $scope.conference.length; i++) {
+                    console.log("Copying");
+                    console.log(data['conference'][i]);
+                    console.log($scope.conference[i]);
+                    $scope.conference[i] = data['conference'][i];
+                    console.log($scope.conference[i]);
+                }
+                $scope.stepOccasion(0);
+
+//                $scope.relations = data['relations'];
+                console.log("Response processed");
+            }).
+            error(function(data, status, headers, config) {
+                console.log("Error calling simulate!")
+            });
+	  }
 	});
   </script>
 

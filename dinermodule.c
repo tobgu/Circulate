@@ -397,6 +397,12 @@ static void destroy_seating_result(int** result, Conference *conference) {
 }
 
 static PyObject *calc_conference(PyObject *self, PyObject *args) {
+    // TODO: Remake this slightly to store the current seatings
+    // as the current best and that score so that if we already have a
+    // decent result that will not be overwritten by a worse simulation.
+    // Perhaps not always necessary to scramble initially?
+    // Perhaps it's enough with a flag telling if an initial scrambling
+    // should be performed.
     Conference *conference = create_conference(args);
     unsigned long int best_score = 0xFFFFFFFFFFFFFFFF;
     int *relations = create_relation_matrix(conference->weight_count);

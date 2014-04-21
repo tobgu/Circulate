@@ -1,13 +1,14 @@
 import os
 from flask import Flask, request, redirect, url_for, render_template
+import itertools
 import simplejson
 from werkzeug.utils import secure_filename
-from diner import run_global_simulation
+from diner import run_global_simulation, do_run_global_simulation, CLIMB_MODE_ALWAYS, add_seatings, seatings_to_guest_list
 
 UPLOAD_FOLDER = 'uploads/'
 RESULT_FOLDER = 'results/'
 ALLOWED_EXTENSIONS = set(['xls', 'xlsm'])
-IS_DEVELOP_MODE = False
+IS_DEVELOP_MODE = True
 
 
 class CustomFlask(Flask):
@@ -30,9 +31,27 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
+# TODO
+# - Continue simulation
+# - Generate excel and make downloadable (including list sorted on participant name with table id listed)
+# - Make conflict listing better
+# - Experiment with higher punishment for sitting next to each other multiple times
 @app.route('/simulate', methods=['POST'])
 def simulate():
-    # TODO: Get data from the JSON reply, run simulation
+    data = request.json
+    guests, table_sizes, seating_names = seatings_to_guest_list(data['conference'])
+    conference = {'weight_matrix': data['weight_matrix'], 'guests': guests,
+                  'table_sizes': table_sizes, 'seating_names': seating_names}
+    best_result, _, relation_list, _, _ = do_run_global_simulation(CLIMB_MODE_ALWAYS, conference, 1.0)
+    add_seatings(conference, best_result['participants'])
+
+    conference = [{'name': name, 'tables': tables} for name, tables in conference['placements'].iteritems()]
+    return simplejson.dumps({'relations': relation_list, 'conference': conference})
+
+
+@app.route('/excel', methods=['POST'])
+def generate_excel():
+    # Generate excel file and provide link to document.
     pass
 
 @app.route('/', methods=['GET', 'POST'])
@@ -56,6 +75,7 @@ def upload_file():
                     conference_json = f.readline()
                     staff_names_json = f.readline()
                     relations_json = f.readline()
+                    weight_matrix_json = f.readline()
             else:
                 data = run_global_simulation(full_filename,
                                os.path.join(app.config['RESULT_FOLDER'], result_filename),
@@ -65,15 +85,17 @@ def upload_file():
                 conference_json = simplejson.dumps([{'name': name, 'tables': tables} for name, tables in data['conference']['placements'].iteritems()])
                 staff_names_json = simplejson.dumps(data['conference']['staff_names'])
                 relations_json = simplejson.dumps(data['relations'])
+                weight_matrix_json = simplejson.dumps(data['conference']['weight_matrix'])
 
                 if IS_DEVELOP_MODE:
                     with open("cache.json", mode='w') as f:
-                        f.writelines([conference_json + '\n', staff_names_json + '\n', relations_json])
+                        f.writelines([conference_json + '\n', staff_names_json + '\n', relations_json + '\n', weight_matrix_json])
 
             return render_template('show_participants.html',
                                    conference=conference_json,
                                    staff_names=staff_names_json,
-                                   relations=relations_json)
+                                   relations=relations_json,
+                                   weight_matrix=weight_matrix_json)
 #            return redirect(url_for('download_file', filename=result_filename))
 
     return '''

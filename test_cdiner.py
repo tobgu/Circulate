@@ -22,12 +22,12 @@ def small_test():
     result = calc_conference_wrapper((1.0, conference, 1))
 
     # This is the expected result when no participants have been fixed
-    assert result['participants'][0][0] == 2
+    assert result['participants'][0][0]['id'] == 2
 
     # Fix participant 0 and rerun the test
     conference['guests'][0][0]['fix'] = True
     result = calc_conference_wrapper((1.0, conference, 1))
-    assert result['participants'][0][0] == 0
+    assert result['participants'][0][0]['id'] == 0
 
     # Now fix participant 2 and rerun the test
     conference['guests'][0][0]['fix'] = False
@@ -35,7 +35,9 @@ def small_test():
 
     # This time a switch is performed but it is less optimal than if we could choose freely
     result = calc_conference_wrapper((1.0, conference, 1))
-    assert result['participants'][0][0] == 1
+    assert result['participants'][0][0]['id'] == 1
+    assert not result['participants'][0][0]['fix']
+    assert result['participants'][0][2]['fix']
 
 
     score = result['score']
@@ -73,8 +75,14 @@ def print_seatings(conference):
 # - Some sort if drag and drop HTML interface as a complement to the excel file delivered
 #   for intermediate seating manipulation
 
-def large_test(conference):
+def large_test():
     start = time()
+    print "Reading conference data"
+    conference = read_conference_data()
+    conference_read = time()
+    print "Done, time=%s" % (conference_read - start)
+
+
     result = calc_conference_wrapper((1.0, conference, 1))
 
     score = result['score']
@@ -86,7 +94,7 @@ def large_test(conference):
 #    score, tests_count, scramble_count, participants, relations = calc_conference(1.0, conference['weight_matrix'],
 #                                                                  conference['guests'], conference['table_sizes'], 1)
     conference_optimized = time()
-    print "Calc conference: time=%s, score=%s, tests_count=%s, scramble_count=%s, participants=%s" % (conference_optimized - start,
+    print "Calc conference: time=%s, score=%s, tests_count=%s, scramble_count=%s, participants=%s" % (conference_optimized - conference_read,
                                                                                    score,
                                                                                    tests_count,
                                                                                    scramble_count,
@@ -103,11 +111,5 @@ def large_test(conference):
 
 
 if __name__ == '__main__':
-#    start = time()
-#    print "Reading conference data"
-#    conference = read_conference_data()
-#    conference_read = time()
-#    print "Done, time=%s" % (conference_read - start)
-
-#    large_test(conference)
+    large_test()
     small_test()
