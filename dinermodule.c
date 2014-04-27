@@ -125,7 +125,7 @@ static void scramble(int *buf, int *fix_indicators, int length) {
         from_index = rand() % (i + 1);
 
         // The randomness will break down if a large proportion of the population is fixed
-        if((fix_indicators[i] != 0) && (fix_indicators[from_index] != 0)) {
+        if((fix_indicators[i] == 0) && (fix_indicators[from_index] == 0)) {
             temp = buf[i];
             buf[i] = buf[from_index];
             buf[from_index] = temp;
@@ -163,19 +163,22 @@ static void destroy_relation_matrix(int* matrix) {
     free(matrix);
 }
 
-static int* scramble_conference(Conference *conference, int *relations) {
+static void calculate_relations(Conference *conference, int *relations) {
+    clear_relation_matrix(relations, conference->weight_count);
+    for(int i=0; i<conference->occasion_count; i++) {
+        update_relations(relations, conference->weight_count, &(conference->occasions[i]));
+    }
+}
+
+static void scramble_conference(Conference *conference, int *relations) {
     /* The relations matrix contains a count of the number of times that each person
        has been sitting at the same table as another person at the conference.
        It is really just a redundant (but easier to work with when running optimizations)
        representation of the tables and their participants. */
-    clear_relation_matrix(relations, conference->weight_count);
     for(int i=0; i<conference->occasion_count; i++) {
         scramble(conference->occasions[i].participants, conference->occasions[i].fix_indicators,
                  conference->occasions[i].participant_count);
-        update_relations(relations, conference->weight_count, &(conference->occasions[i]));
     }
-
-    return relations;
 }
 
 static PyObject *array_to_pylist(int *arr, int length) {
@@ -396,6 +399,14 @@ static void destroy_seating_result(int** result, Conference *conference) {
     free(result);
 }
 
+static void initialize_random(void) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    srandom((int)tv.tv_sec + getpid());
+    printf("Initializing module sec: %i, pid: %i\n", (int)tv.tv_sec, getpid());
+}
+
+
 static PyObject *calc_conference(PyObject *self, PyObject *args) {
     // TODO: Remake this slightly to store the current seatings
     // as the current best and that score so that if we already have a
@@ -403,19 +414,27 @@ static PyObject *calc_conference(PyObject *self, PyObject *args) {
     // Perhaps not always necessary to scramble initially?
     // Perhaps it's enough with a flag telling if an initial scrambling
     // should be performed.
+    initialize_random();
     Conference *conference = create_conference(args);
-    unsigned long int best_score = 0xFFFFFFFFFFFFFFFF;
     int *relations = create_relation_matrix(conference->weight_count);
-    int *best_relations = create_relation_matrix(conference->weight_count);
     size_t relation_size = conference->weight_count * conference->weight_count * sizeof(int);
-    int **best_seatings = allocate_seating_result(conference);
     long int tests_count = 0;
     long int scramble_count = 0;
 
     printf("calc_conference, climb_mode=%i\n", conference->climb_mode);
+
+    // Use the current seatings as a starting point to compare any results with
+    int *best_relations = create_relation_matrix(conference->weight_count);
+    int **best_seatings = allocate_seating_result(conference);
+    calculate_relations(conference, best_relations);
+    unsigned long int best_score = calculate_conference_score(conference, best_relations);
+    copy_participants(best_seatings, conference);
+
+
     double stop_time = get_time() + conference->execution_time;
     while(get_time() < stop_time) {
         scramble_conference(conference, relations);
+        calculate_relations(conference, relations);
         scramble_count++;
         if(conference->climb_mode == CLIMB_MODE_ALWAYS) {
             tests_count += optimize_conference(conference, relations);
@@ -437,6 +456,7 @@ static PyObject *calc_conference(PyObject *self, PyObject *args) {
     destroy_seating_result(best_seatings, conference);
     destroy_conference(conference);
 
+    printf("Simulation done!\n");
     return Py_BuildValue("lllOO", best_score, tests_count, scramble_count,
                          participants_list, relation_list);
 }
@@ -450,7 +470,4 @@ static PyMethodDef DinerMethods[] = {
 PyMODINIT_FUNC initdinerc(void)
 {
     (void) Py_InitModule("dinerc", DinerMethods);
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    srandom((int)tv.tv_sec + getpid());
 }

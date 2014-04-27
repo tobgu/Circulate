@@ -1,9 +1,9 @@
 import os
-from flask import Flask, request, redirect, url_for, render_template
-import itertools
+from flask import Flask, request, url_for, render_template
 import simplejson
 from werkzeug.utils import secure_filename
-from diner import run_global_simulation, do_run_global_simulation, CLIMB_MODE_ALWAYS, add_seatings, seatings_to_guest_list
+from diner import run_simulation, CLIMB_MODE_ALWAYS, seatings_to_guest_list
+from xlsm_io import write_seating, read_conference_data
 
 UPLOAD_FOLDER = 'uploads/'
 RESULT_FOLDER = 'results/'
@@ -32,33 +32,39 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
 # TODO
-# - Continue simulation
-# - Generate excel and make downloadable (including list sorted on participant name with table id listed)
 # - Make conflict listing better
 # - Experiment with higher punishment for sitting next to each other multiple times
+def run_simulation_from_json(json_data, simulation_time):
+    guests, table_sizes, seating_names = seatings_to_guest_list(json_data['conference'])
+    conference = {'weight_matrix': json_data['weight_matrix'], 'guests': guests,
+                  'table_sizes': table_sizes, 'seating_names': seating_names,
+                  'staff_names': json_data['participant_names']}
+
+    return run_simulation(conference, simulation_time, CLIMB_MODE_ALWAYS)
+
+
 @app.route('/simulate', methods=['POST'])
 def simulate():
-    data = request.json
-    guests, table_sizes, seating_names = seatings_to_guest_list(data['conference'])
-    conference = {'weight_matrix': data['weight_matrix'], 'guests': guests,
-                  'table_sizes': table_sizes, 'seating_names': seating_names}
-    best_result, _, relation_list, _, _ = do_run_global_simulation(CLIMB_MODE_ALWAYS, conference, 1.0)
-    add_seatings(conference, best_result['participants'])
-
-    conference = [{'name': name, 'tables': tables} for name, tables in conference['placements'].iteritems()]
-    return simplejson.dumps({'relations': relation_list, 'conference': conference})
+    # TODO: Fix mismatch in conference naming
+    result = run_simulation_from_json(request.json, 1.0)
+    return simplejson.dumps({'relations': result['relations'], 'conference': result['conference']['placements']})
 
 
-@app.route('/excel', methods=['POST'])
+@app.route('/result/excel', methods=['POST'])
 def generate_excel():
     # Generate excel file and provide link to document.
-    pass
+
+    result = run_simulation_from_json(request.json, 0.0)
+    result_filename = 'test.xls'
+    destination = os.path.join(app.config['RESULT_FOLDER'], result_filename)
+    write_seating(result['conference'], filename=destination)
+
+    return simplejson.dumps({'url': url_for('download_file', filename=result_filename)})
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
         file = request.files['file']
-        simulation_time = request.form['simulation_time']
 
         # The magic numbers in the climb mode are coordinated with the C-code
         climb_mode = request.form['climb_mode']
@@ -67,7 +73,6 @@ def upload_file():
             filename = secure_filename(file.filename)
             full_filename = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(full_filename)
-            result_filename = 'result_' + filename.rsplit('.', 1)[0] + '.xls'
 
             # Solution to avoid having to rerun the simulation all the time
             if os.path.isfile("cache.json") and IS_DEVELOP_MODE:
@@ -77,12 +82,10 @@ def upload_file():
                     relations_json = f.readline()
                     weight_matrix_json = f.readline()
             else:
-                data = run_global_simulation(full_filename,
-                               os.path.join(app.config['RESULT_FOLDER'], result_filename),
-                               simulation_time=float(simulation_time),
-                               climb_mode=int(climb_mode))
-
-                conference_json = simplejson.dumps([{'name': name, 'tables': tables} for name, tables in data['conference']['placements'].iteritems()])
+                # Load initial data into system by running a 0 second simulation
+                conference = read_conference_data(filename=full_filename)
+                data = run_simulation(conference, simulation_time=0.0, climb_mode=int(climb_mode))
+                conference_json = simplejson.dumps(conference['placements'])
                 staff_names_json = simplejson.dumps(data['conference']['staff_names'])
                 relations_json = simplejson.dumps(data['relations'])
                 weight_matrix_json = simplejson.dumps(data['conference']['weight_matrix'])
@@ -96,7 +99,6 @@ def upload_file():
                                    staff_names=staff_names_json,
                                    relations=relations_json,
                                    weight_matrix=weight_matrix_json)
-#            return redirect(url_for('download_file', filename=result_filename))
 
     return '''
     <!doctype html>
@@ -114,23 +116,6 @@ def upload_file():
               </h1>
               <label>
                 <input type=file name=file />
-              </label>
-              <label>
-                <span>Simulation time:</span>
-                  <select name="simulation_time">
-                    <option value="1">1 s</option>
-                    <option value="5">5 s</option>
-                    <option value="10">10 s</option>
-                    <option value="30">30 s</option>
-                    <option value="60">1 min</option>
-                    <option value="300">5 min</option>
-                    <option value="1800">30 min</option>
-                    <option value="3600">1 h</option>
-                    <option value="21600">6 h</option>
-                    <option value="43200">12 h</option>
-                    <option value="86400">24 h</option>
-                  </select>
-                 </span>
               </label>
               <label>
                 <span>Hill climb:</span>

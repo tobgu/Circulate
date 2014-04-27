@@ -8,7 +8,9 @@ def write_seating(conference, filename='seating_out.xls'):
     ws = wb.active
     ws.title = "Seatings"
 
-    for col_idx, (name, tables) in enumerate(conference['placements'].items()):
+    for col_idx,  occasion in enumerate(conference['placements']):
+        name = occasion['name']
+        tables = occasion['tables']
         col = get_column_letter(col_idx+1)
         row = 1
         ws.cell('%s%s' % (col, row)).value = name

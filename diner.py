@@ -1,4 +1,3 @@
-from collections import OrderedDict
 import multiprocessing
 from time import time
 import itertools
@@ -10,7 +9,7 @@ CLIMB_MODE_NEVER = 2
 
 
 def add_seatings(conference, participants):
-    conference['placements'] = OrderedDict()
+    conference['placements'] = []
     for i, (name, table_sizes) in enumerate(zip(conference['seating_names'], conference['table_sizes'])):
         start = 0
         participants_by_table = []
@@ -18,7 +17,7 @@ def add_seatings(conference, participants):
             participants_by_table.append(participants[i][start:start+size])
             start += size
 
-        conference['placements'][name] = participants_by_table
+        conference['placements'].append({'name': name, 'tables': participants_by_table})
 
 
 def guest_properties(guests_per_occasion, property_name):
@@ -29,7 +28,8 @@ def calc_conference_wrapper(args):
     simulation_time, conference, climb_mode = args
 #    print conference['guests']
     guest_ids = guest_properties(conference['guests'], 'id')
-    guest_fix_indicators = guest_properties(conference['guests'], 'fix')
+    guest_fix_indicators = [[1 if fixed else 0 for fixed in occasion] for occasion in guest_properties(conference['guests'], 'fix')]
+    print guest_fix_indicators
 
     score, test_count, scramble_count, participants, relations = calc_conference(simulation_time,
                                                                                  conference['weight_matrix'],
@@ -42,7 +42,6 @@ def calc_conference_wrapper(args):
     # participants don't move.
     participants = [[{'id': id, 'fix': participant['fix']} for id, participant in zip(result_occasion, input_occasion)]
                     for result_occasion, input_occasion in zip(participants, conference['guests'])]
-
 
     return {'score': score, 'test_count': test_count, 'scramble_count': scramble_count,
             'participants': participants, 'relations': relations}
@@ -64,6 +63,7 @@ def seatings_to_guest_list(seatings):
         guests.append(list(itertools.chain(*seating['tables'])))
 
     return guests, table_sizes, seating_names
+
 
 def create_relation_list(relations, conference):
     result = []
@@ -93,18 +93,18 @@ def do_run_global_simulation(climb_mode, conference, simulation_time):
     return best_result, duration, relation_list, scramble_count, test_count
 
 
-def run_global_simulation(source_filename, destination_filename, simulation_time, climb_mode):
-    conference = read_conference_data(filename=source_filename)
-
-    best_result, duration, relation_list, scramble_count, test_count = \
+def run_simulation(conference, simulation_time, climb_mode):
+    best_result, duration, relation_list, scramble_count, tests_count = \
         do_run_global_simulation(climb_mode, conference, simulation_time)
 
     add_seatings(conference, best_result['participants'])
-    write_seating(conference, filename=destination_filename)
-    add_global_simulation_info(best_result['score'], test_count, scramble_count, duration,
-                               relation_list, filename=destination_filename, conference=conference)
 
-    return total_data(conference, best_result['score'], test_count, scramble_count, duration, relation_list)
+    return {'conference': conference,
+            'score': best_result['score'],
+            'total_tests_count': tests_count,
+            'total_iteration_count': scramble_count,
+            'duration': duration,
+            'relations': relation_list}
 
         # TODO:
         # - Would be nice to be able to select
@@ -121,22 +121,3 @@ def run_global_simulation(source_filename, destination_filename, simulation_time
         # - Try to increase the penalty for sitting next to each other multiple times
         # - Show if constalations of persons have been sitting next to each other at
         #   multiple occasions (rings of people...)
-
-
-def total_data(conference, score, total_tests_count, total_iteration_count, duration, relations):
-    return {'conference': conference,
-            'score': score,
-            'total_tests_count': total_tests_count,
-            'total_iteration_count': total_iteration_count,
-            'duration': duration,
-            'relations': relations}
-
-
-# In:
-# - List of participants per occasion and if they are locked (to the position that they are currently at)
-# - List of table sizes for each table at each occasion
-# - Weight matrix
-#
-# Out:
-# - Placements, list of list of tables with participants
-# - Seating list, high score (a list of relation matrices?)

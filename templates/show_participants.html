@@ -13,7 +13,7 @@
     <div class="logo">Get seated!</div>
     <div class="control-panel">
         <button class="button occasion-button" ng-click="runSimulation()">Run</button>
-        <button class="button occasion-button">Download result</button>
+        <button class="button occasion-button" ng-click="getResult()">Download result</button>
 <!--        <button class="button occasion-button">Download locks</button> -->
         <button class="button occasion-button" ng-click="stepOccasion(-1)"><< {{previousOccasion.name}}</button>
         <span class="occasion-name">{{currentOccasion.name}}</span>
@@ -66,11 +66,6 @@
   <script src='/static/angular.min.js'></script>
 
   <script>
-
-// $.post('/create_binary_file.php', postData, function(retData) {
-//   $("body").append("<iframe src='" + retData.url+ "' style='display: none;' ></iframe>");
-// });
-
     var app = angular.module('dragDrop', []);
 
 	app.directive('switchable', function() {
@@ -206,21 +201,21 @@
 	});
 
 	// Conference is made up of occasions with names
-	var xparticipant_names = ["John Doe", "Tom Bom", "Niel Fish", "Locky Bastard", "Joe Johnson", "Any One", "Bom Bom", "Bam Bam", "Pete"];
-	var xconference = [{name: "Sunday", tables: [[{id: 0, fix: false}, {id: 2, fix: false}],
-	                                            [{id: 2, fix: false}, {id: 3, fix: true}]]},
-					  {name: "Monday", tables: [[{id: 4, fix: false}, {id: 5, fix: false}],
-					                            [{id: 6, fix: false}, {id: 7, fix: false}, {id: 8, fix: false}]]}];
+//	var xparticipant_names = ["John Doe", "Tom Bom", "Niel Fish", "Locky Bastard", "Joe Johnson", "Any One", "Bom Bom", "Bam Bam", "Pete"];
+//	var xconference = [{name: "Sunday", tables: [[{id: 0, fix: false}, {id: 2, fix: false}],
+//	                                            [{id: 2, fix: false}, {id: 3, fix: true}]]},
+//					  {name: "Monday", tables: [[{id: 4, fix: false}, {id: 5, fix: false}],
+//					                            [{id: 6, fix: false}, {id: 7, fix: false}, {id: 8, fix: false}]]}];
 
  	var participant_names = %%staff_names|safe%%;
     var conference = %%conference|safe%%;
     var relations = %%relations|safe%%;
     var weight_matrix = %%weight_matrix|safe%%;
 
-	app.controller('DragDropCtrl', function($scope,  $http) {
+	app.controller('DragDropCtrl', function($scope,  $http, $document) {
 	  $scope.conference = conference;
 	  $scope.participant_names = participant_names;
-	  $scope.relations = relations;
+	  $scope.relations = []; // relations;
 	  $scope.currentOccasionIx = 0;
 
 	  $scope.stepOccasion = function(direction) {
@@ -234,7 +229,9 @@
 
 	  $scope.runSimulation = function() {
 	     $http({method: 'POST', url: '/simulate',
-	            data: {conference: $scope.conference, weight_matrix: weight_matrix},
+	            data: {participant_names: $scope.participant_names,
+	                   conference: $scope.conference,
+	                   weight_matrix: weight_matrix },
 	            headers: {"Content-Type": "application/json"}}).
             success(function(data, status, headers, config) {
                 console.log("Received response");
@@ -242,11 +239,7 @@
                 // Copy into the original conference object to avoid that the references
                 // to the conference from the directives are not lost
                 for(var i = 0; i < $scope.conference.length; i++) {
-                    console.log("Copying");
-                    console.log(data['conference'][i]);
-                    console.log($scope.conference[i]);
                     $scope.conference[i] = data['conference'][i];
-                    console.log($scope.conference[i]);
                 }
                 $scope.stepOccasion(0);
 
@@ -256,10 +249,25 @@
             error(function(data, status, headers, config) {
                 console.log("Error calling simulate!")
             });
+	  };
+
+	  $scope.getResult = function() {
+         $http({method: 'POST', url: '/result/excel',
+                data: {participant_names: $scope.participant_names,
+                       conference: $scope.conference,
+                       weight_matrix: weight_matrix},
+	            headers: {"Content-Type": "application/json"}}).
+            success(function(data, status, headers, config) {
+                console.log("Received file name ");
+
+                // Dirty hack to trigger download
+                angular.element($document[0].body).append("<iframe src='" + data.url + "' style='display: none;'></iframe>");
+            }).
+            error(function(data, status, headers, config) {
+                console.log("Error getting file!")
+            });
 	  }
 	});
   </script>
-
-</body>
 
 </html>
