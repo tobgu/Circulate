@@ -7,6 +7,7 @@ def write_simulation_result(result, filename='seating_out.xls'):
     wb = Workbook()
     ws = wb.active
     add_seatings(result['conference'], ws)
+    add_table_by_participants(result['conference'], wb)
     add_simulation_statistics(result, wb)
     wb.save(filename=filename)
 
@@ -36,10 +37,19 @@ def add_simulation_statistics(result, wb):
     ws.column_dimensions['C'].width = 30.0
 
 
+def straight_table_list(staff_names, tables):
+    participants = []
+    for i, table in enumerate(tables):
+        for p in table:
+            participants.append((staff_names[p['id']], i))
+
+    return sorted(participants, key=lambda x: x[0])
+
+
 def add_seatings(conference, ws):
     ws.title = "Seatings"
 
-    for col_idx,  occasion in enumerate(conference['placements']):
+    for col_idx, occasion in enumerate(conference['placements']):
         name = occasion['name']
         tables = occasion['tables']
         col = get_column_letter(col_idx+1)
@@ -56,6 +66,29 @@ def add_seatings(conference, ws):
 
         ws.column_dimensions[col].width = 20.0
 
+
+def add_table_by_participants(conference, wb):
+    ws = wb.create_sheet()
+    ws.title = "Participants"
+
+    col_ix = 1
+    for occasion in conference['placements']:
+        name = occasion['name']
+        tables = occasion['tables']
+        col = get_column_letter(col_ix)
+        col_table = get_column_letter(col_ix+1)
+        row = 1
+        ws.cell('%s%s' % (col, row)).value = name
+        ws.cell('%s%s' % (col, row)).style.font.bold = True
+
+        for participant, table_no in straight_table_list(conference['staff_names'], tables):
+            row += 1
+            ws.cell('%s%s' % (col, row)).value = participant
+            ws.cell('%s%s' % (col_table, row)).value = table_no + 1
+
+        ws.column_dimensions[col].width = 20.0
+        ws.column_dimensions[col_table].width = 5
+        col_ix += 3
 
 def write_score(score, filename):
     wb = Workbook()

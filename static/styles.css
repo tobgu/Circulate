@@ -133,27 +133,39 @@
     .occasion-button {
       float: left;
       margin: 0px 5px 0px 5px;
+      font-family: 'Titillium Web', sans-serif;
       }
 
     .occasion-select {
       float: left;
       padding: 5px 5px 5px 5px;
       margin-left: 5px;
+      font-family: 'Titillium Web', sans-serif;
     }
 
     .occasion-link {
       float: left;
       margin: 10px 5px 5px 5px;
       cursor: pointer;
+      font-family: 'Titillium Web', sans-serif;
+      position: relative;
+      font-size: 12px;
+      color: #355681;
+      text-transform: uppercase;
       }
 
     .occasion-name {
-	  font-family: "Arial", Sans-serif;
 	  font-size: 1.5em;
       min-width: 200px;
       float: left;
       text-align: center;
       padding: 5px;
+      font-weight: 600;
+      font-family: 'Titillium Web', sans-serif;
+      position: relative;
+      font-size: 20px;
+      color: #355681;
+      text-transform: uppercase;
      }
 
     .table-div {
@@ -180,7 +192,7 @@
 
     .logo {
         color: #FFF;
-        background: #9DC45F;
+        background: #355681;
         text-shadow: 1px 1px 1px #949494;
         float: left;
         font: 24px "Trebuchet MS", Arial, Helvetica, sans-serif;
@@ -190,7 +202,7 @@
 
     .control-panel {
         padding: 5px 0px 0px 10px;
-        background: #DCDCDC;
+        background: rgba(53,86,129, 0.3)
     }
 
     .command-in-progress {
@@ -241,4 +253,17 @@
 
     #hor-minimalist tbody tr:hover td {
         color: #009;
+    }
+
+    h1 {
+        margin: 1em 0 0.5em 0;
+        font-weight: 600;
+        font-family: 'Titillium Web', sans-serif;
+        position: relative;
+        text-shadow: 0 -1px 1px rgba(0,0,0,0.4);
+        font-size: 22px;
+        line-height: 40px;
+        color: #355681;
+        text-transform: uppercase;
+        border-bottom: 1px solid rgba(53,86,129, 0.3);
     }

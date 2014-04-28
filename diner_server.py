@@ -8,7 +8,7 @@ from xlsm_io import read_conference_data, write_simulation_result
 UPLOAD_FOLDER = 'uploads/'
 RESULT_FOLDER = 'results/'
 ALLOWED_EXTENSIONS = set(['xls', 'xlsm'])
-IS_DEVELOP_MODE = True
+IS_DEVELOP_MODE = False
 
 
 class CustomFlask(Flask):
@@ -33,9 +33,6 @@ def allowed_file(filename):
 
 # TODO
 # - Make conflict listing better
-# - Experiment with higher punishment for sitting next to each other multiple times
-#   evaluation button to recalculate seating stat
-# - Participants in name order
 def run_simulation_from_json(json_data, simulation_time):
     guests, table_sizes, seating_names = seatings_to_guest_list(json_data['conference'])
     conference = {'weight_matrix': json_data['weight_matrix'], 'guests': guests,
@@ -87,6 +84,7 @@ def upload_file():
             else:
                 # Load initial data into system by running a 0 second simulation
                 conference = read_conference_data(filename=full_filename)
+                conference['coloc_penalty'] = 0
                 data = run_simulation(conference, simulation_time=0.0, climb_mode=int(climb_mode))
                 conference_json = simplejson.dumps(conference['placements'])
                 staff_names_json = simplejson.dumps(data['conference']['staff_names'])
@@ -115,7 +113,7 @@ def upload_file():
         <body>
             <form class="smart-green" action="" method=post enctype=multipart/form-data>
               <h1>Get seated!
-                <span>Select input file and parameters</span>
+                <span>Select input file and parameters. <a href="/downloads/seating.xlsm">Demo file</a></span>
               </h1>
               <label>
                 <input type=file name=file />
