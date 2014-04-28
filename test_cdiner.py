@@ -1,6 +1,6 @@
 from dinerc import calc_conference
 from diner import add_seatings, create_relation_list, calc_conference_wrapper
-from xlsm_io import read_conference_data, write_seating
+from xlsm_io import read_conference_data
 from time import time
 
 def print_relations(relations, dimension_size):
@@ -41,12 +41,8 @@ def small_test():
 
 
     score = result['score']
-#    tests_count = result['test_count']
-#    scramble_count = result['scramble_count']
     participants = result['participants']
     relations = result['relations']
-
-#    score, participants, relations = calc_conference(1.0, 5, weight_matrix, participants, tables)
 
     print "Calc conference: %s, %s" % (score, participants)
     print_relations(relations, len(conference['weight_matrix']))
@@ -61,19 +57,6 @@ def print_seatings(conference):
             for participant in table:
                 print participant.encode('utf-8')
 
-
-# TODO
-# x - Write to excel
-# - Measure time taken to loop and merge some of the loops
-# x - Get the web interface working including subprocessing
-# - ~ Measure the read in times and improve them if possible
-# - Make some sort of validation of the generated data, writing down weights and reoccuring pairs?
-# - Make it possible to start from a fixed position
-# - Make it possible to lock certain individuals to certain positions and optimize from there
-# - Dust of the table based algorithm to make it work over the whole conference
-# - Print tables and participants ordered by the last or first name of the participant
-# - Some sort if drag and drop HTML interface as a complement to the excel file delivered
-#   for intermediate seating manipulation
 
 def large_test():
     start = time()
@@ -91,8 +74,6 @@ def large_test():
     participants = result['participants']
     relations = result['relations']
 
-#    score, tests_count, scramble_count, participants, relations = calc_conference(1.0, conference['weight_matrix'],
-#                                                                  conference['guests'], conference['table_sizes'], 1)
     conference_optimized = time()
     print "Calc conference: time=%s, score=%s, tests_count=%s, scramble_count=%s, participants=%s" % (conference_optimized - conference_read,
                                                                                    score,
@@ -104,7 +85,7 @@ def large_test():
     seatings_grouped = time()
     print "Seatings grouped %s" % (seatings_grouped - conference_optimized)
 
-    write_seating(conference)
+#    write_seating(conference)
     print "Conference written %s" % (time() - seatings_grouped)
 
     create_relation_list(relations, conference)

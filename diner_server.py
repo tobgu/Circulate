@@ -8,7 +8,7 @@ from xlsm_io import read_conference_data, write_simulation_result
 UPLOAD_FOLDER = 'uploads/'
 RESULT_FOLDER = 'results/'
 ALLOWED_EXTENSIONS = set(['xls', 'xlsm'])
-IS_DEVELOP_MODE = True
+IS_DEVELOP_MODE = False
 
 
 class CustomFlask(Flask):
@@ -34,6 +34,10 @@ def allowed_file(filename):
 # TODO
 # - Make conflict listing better
 # - Experiment with higher punishment for sitting next to each other multiple times
+#   evaluation button to recalculate seating stat
+# - Configurable simulation time form new dialog
+# - Busy indicator with double click protection
+# - Participants in name order
 def run_simulation_from_json(json_data, simulation_time):
     guests, table_sizes, seating_names = seatings_to_guest_list(json_data['conference'])
     conference = {'weight_matrix': json_data['weight_matrix'], 'guests': guests,

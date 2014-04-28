@@ -17,9 +17,9 @@ def add_simulation_statistics(result, wb):
     ws.title = "Statistics"
 
     set_at_row(ws, 1, "Simulation score", result['score'])
-    set_at_row(ws, 2, "Simulated moves", result['total_tests_count'])
-    set_at_row(ws, 3, "Starting points", result['total_iteration_count'])
-    set_at_row(ws, 4, "Simulation duration", result['duration'])
+#    set_at_row(ws, 2, "Simulated moves", result['total_tests_count'])
+#    set_at_row(ws, 3, "Starting points", result['total_iteration_count'])
+#    set_at_row(ws, 4, "Simulation duration", result['duration'])
 
     ws.cell('A8').value = "Relation"
     ws.cell('B8').value = "At same table"

@@ -25,10 +25,8 @@ def guest_properties(guests_per_occasion, property_name):
 
 def calc_conference_wrapper(args):
     simulation_time, conference, climb_mode = args
-#    print conference['guests']
     guest_ids = guest_properties(conference['guests'], 'id')
     guest_fix_indicators = [[1 if fixed else 0 for fixed in occasion] for occasion in guest_properties(conference['guests'], 'fix')]
-    print guest_fix_indicators
 
     score, test_count, scramble_count, participants, relations = calc_conference(simulation_time,
                                                                                  conference['weight_matrix'],
@@ -104,19 +102,3 @@ def run_simulation(conference, simulation_time, climb_mode):
             'total_iteration_count': scramble_count,
             'duration': duration,
             'relations': relation_list}
-
-        # TODO:
-        # - Would be nice to be able to select
-        #   * No optimization, only scrambling
-        #   * Optimization on every scramble
-        #   * Optimization on best scramble
-        # - Some way of specifying a multiplication factor for the relations to push
-        #   persons away from each other?
-        # - Add a pivot table showing the number of relations by times they were seated
-        #   together (their score in the relation matrix, right now the number of times
-        #   seated).
-        # - Add a list of all participant sorted by name per event with the table number
-        #   after.
-        # - Try to increase the penalty for sitting next to each other multiple times
-        # - Show if constalations of persons have been sitting next to each other at
-        #   multiple occasions (rings of people...)

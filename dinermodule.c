@@ -403,17 +403,10 @@ static void initialize_random(void) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     srandom((int)tv.tv_sec + getpid());
-    printf("Initializing module sec: %i, pid: %i\n", (int)tv.tv_sec, getpid());
 }
 
 
 static PyObject *calc_conference(PyObject *self, PyObject *args) {
-    // TODO: Remake this slightly to store the current seatings
-    // as the current best and that score so that if we already have a
-    // decent result that will not be overwritten by a worse simulation.
-    // Perhaps not always necessary to scramble initially?
-    // Perhaps it's enough with a flag telling if an initial scrambling
-    // should be performed.
     initialize_random();
     Conference *conference = create_conference(args);
     int *relations = create_relation_matrix(conference->weight_count);
