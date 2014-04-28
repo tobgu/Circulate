@@ -17,14 +17,17 @@
         <label for="colocation-penalty" class="occasion-select">Co-location penalty</label>
         <select id="colocation-penalty" class="occasion-select" ng-model="colocPenalty" ng-options="p for p in penaltyChoices"></select>
         <button class="button occasion-button" ng-class="{ 'command-in-progress' : commandInProgress }" ng-disabled="commandInProgress" ng-click="runSimulation()">Optimize!</button>
+        <a href class="occasion-button" ng-click="getResult()">Download result</a>
         <div class="clear">&nbsp;</div>
     </div>
-    <div>
+  </div>
+
+  <h1>Seatings per occasion</h1>
+  <div>
         <a href class="occasion-link" ng-click="stepOccasion(-1)"><< {{previousOccasion.name}}</a>
         <span class="occasion-name">{{currentOccasion.name}}</span>
         <a href class="occasion-link" ng-click="stepOccasion(1)">{{nextOccasion.name}} >></a>
         <div class="clear">&nbsp;</div>
-    </div>
   </div>
   <div class="occasion">
     <div class="table-div" ng-repeat="table in currentOccasion.tables">
@@ -49,8 +52,22 @@
 	</div>
   </div>
   <div class="clear">&nbsp;</div>
-  <a href ng-click="getResult()">Download result</a>
   <div>
+    <h1>Co-location distribution</h1>
+      <table id="hor-minimalist" class="relations-table">
+        <thead>
+            <tr>
+                <td>Colocation count</td><td>Occasions</td>
+            </tr>
+        </thead>
+        <tbody>
+            <tr ng-repeat="(colocCount, count) in relationData">
+                <td>{{colocCount}}</td>
+                <td>{{count}}</td>
+            </tr>
+        </tbody>
+      </table>
+
     <h1>Top {{relationsCount}} worst seatings</h1>
     <table id="hor-minimalist" class="relations-table">
         <thead>
@@ -202,7 +219,6 @@
 			  },
 			  false
 			);
-
 		}
 	  }
 	});
@@ -222,8 +238,8 @@
 	app.controller('DragDropCtrl', function($scope,  $http, $document) {
 	  $scope.conference = conference;
 	  $scope.participant_names = participant_names;
-	  $scope.relationsCount = 50;
-	  $scope.relations = relations.slice(0, $scope.relationsCount);
+	  $scope.relationsCount = 100;
+	  updateRelationData(relations);
 	  $scope.currentOccasionIx = 0;
 
 	  $scope.stepOccasion = function(direction) {
@@ -234,20 +250,34 @@
 	  };
 
       $scope.simulationTimes = [
+        {name:'Refresh statistics', value: 0.0},
         {name:'1 s', value: 1.0},
         {name:'15 s', value: 15.0},
         {name:'1 min', value: 60.0},
         {name:'10 min', value: 600.0},
         {name:'1 h', value: 3600.0}
         ];
-      $scope.simulationTime = $scope.simulationTimes[0];
+      $scope.simulationTime = $scope.simulationTimes[1];
 
-      $scope.penaltyChoices = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 50];
+      $scope.penaltyChoices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 50, 100, 500, 1000];
       $scope.colocPenalty = $scope.penaltyChoices[0];
 
       $scope.commandInProgress = false;
 
 	  $scope.stepOccasion(0);
+
+      function updateRelationData(allRelations) {
+    	  $scope.relations = allRelations.slice(0, $scope.relationsCount);
+    	  $scope.relationData = {}
+    	  for(var i=0; i < allRelations.length; i++) {
+    	    var relationCount = allRelations[i][2];
+    	    if($scope.relationData[relationCount] !== undefined) {
+    	        $scope.relationData[relationCount]++;
+    	    } else {
+    	        $scope.relationData[relationCount] = 1;
+    	    }
+    	  }
+      }
 
 	  $scope.runSimulation = function() {
 	     $scope.commandInProgress = true;
@@ -255,7 +285,8 @@
 	            data: {participant_names: $scope.participant_names,
 	                   conference: $scope.conference,
 	                   weight_matrix: weight_matrix,
-	                   simulation_time: $scope.simulationTime['value']},
+	                   simulation_time: $scope.simulationTime['value'],
+	                   coloc_penalty: $scope.colocPenalty},
 	            headers: {"Content-Type": "application/json"}}).
             success(function(data, status, headers, config) {
                 console.log("Received response");
@@ -265,7 +296,7 @@
                 for(var i = 0; i < $scope.conference.length; i++) {
                     $scope.conference[i] = data['conference'][i];
                 }
-                $scope.relations = data['relations'].slice(0, $scope.relationsCount);
+                updateRelationData(data['relations']);
                 $scope.stepOccasion(0);
 
 //                $scope.relations = data['relations'];
@@ -283,7 +314,8 @@
          $http({method: 'POST', url: '/result/excel',
                 data: {participant_names: $scope.participant_names,
                        conference: $scope.conference,
-                       weight_matrix: weight_matrix},
+                       weight_matrix: weight_matrix,
+                       coloc_penalty: $scope.colocPenalty},
 	            headers: {"Content-Type": "application/json"}}).
             success(function(data, status, headers, config) {
                 console.log("Received file name ");

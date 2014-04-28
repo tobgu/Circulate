@@ -35,14 +35,13 @@ def allowed_file(filename):
 # - Make conflict listing better
 # - Experiment with higher punishment for sitting next to each other multiple times
 #   evaluation button to recalculate seating stat
-# - Configurable simulation time form new dialog
-# - Busy indicator with double click protection
 # - Participants in name order
 def run_simulation_from_json(json_data, simulation_time):
     guests, table_sizes, seating_names = seatings_to_guest_list(json_data['conference'])
     conference = {'weight_matrix': json_data['weight_matrix'], 'guests': guests,
                   'table_sizes': table_sizes, 'seating_names': seating_names,
-                  'staff_names': json_data['participant_names']}
+                  'staff_names': json_data['participant_names'],
+                  'coloc_penalty': json_data['coloc_penalty']}
 
     return run_simulation(conference, simulation_time, CLIMB_MODE_ALWAYS)
 

@@ -33,7 +33,8 @@ def calc_conference_wrapper(args):
                                                                                  guest_ids,
                                                                                  guest_fix_indicators,
                                                                                  conference['table_sizes'],
-                                                                                 climb_mode)
+                                                                                 climb_mode,
+                                                                                 conference['coloc_penalty'])
 
     # Should be safe to set the fix indicators based on what is in the input since the fixed
     # participants don't move.

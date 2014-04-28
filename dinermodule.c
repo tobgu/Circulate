@@ -88,6 +88,8 @@ typedef struct Conference {
    int climb_mode;
 } Conference;
 
+static int COLOC_PENALTY = 0;
+
 static void destroy_conference(Conference *conference) {
     destroy_occasions(conference->occasions, conference->occasion_count);
     free(conference->weights);
@@ -99,10 +101,11 @@ static Conference* create_conference(PyObject *args) {
     Conference *conference = (Conference*)malloc(sizeof(Conference));
 
 
-    if (!PyArg_ParseTuple(args, "dOOOOi", &conference->execution_time,
+    if (!PyArg_ParseTuple(args, "dOOOOii", &conference->execution_time,
                           &weights, &participants_per_occasion,
                           &fix_indicators_per_occasion,
-                          &table_sizes_per_occasion, &conference->climb_mode)) {
+                          &table_sizes_per_occasion, &conference->climb_mode,
+                          &COLOC_PENALTY)) {
         return NULL;
     }
 
@@ -200,23 +203,25 @@ static PyObject *conference_to_pylist(int** participants, Conference *conference
     return list;
 }
 
-
 static int calculate_move(int *table, int table_size, int current_participant_ix,
                           int *current_weight_array, int *current_relations_array,
                           int *other_weight_array,   int *other_relations_array) {
     /* Calculates a score for moving participants to/from a table. A negative score
        means that seating after the move is better than it was before */
     int score = 0;
+    int penalty;
     for(int i=0; i<table_size; i++) {
         int peer = table[i];
 
         /*********** Current scores *********/
         if(current_relations_array[peer] > 0) {
-            score -= (current_weight_array[peer] + 1) << (current_relations_array[peer] - 1);
+            penalty = ((current_relations_array[peer] - 1) * COLOC_PENALTY) + 1;
+            score -= penalty * (current_weight_array[peer] + 1) << (current_relations_array[peer] - 1);
         }
 
         if(other_relations_array[peer] > 0) {
-            score -= (other_weight_array[peer] + 1) << (other_relations_array[peer] - 1);
+            penalty = ((other_relations_array[peer] - 1) * COLOC_PENALTY) + 1;
+            score -= penalty * (other_weight_array[peer] + 1) << (other_relations_array[peer] - 1);
         }
 
         /******** New scores if moving *************/
@@ -224,17 +229,20 @@ static int calculate_move(int *table, int table_size, int current_participant_ix
            Calculate the relation count as the current count minus one for all participants at the table
            that are still seated with this participant at some stage, otherwise skip since never seated */
         if((current_relations_array[peer] - 1) > 0) {
-            score += (current_weight_array[peer] + 1) << (current_relations_array[peer] - 2);
+            penalty = ((current_relations_array[peer] - 2) * COLOC_PENALTY) + 1;
+            score += penalty * (current_weight_array[peer] + 1) << (current_relations_array[peer] - 2);
         }
 
         /* Move other participant to table.
            Don't count the index where current participant is seated since
            she would not be there any more if we decide to go ahead and make the move. */
         if(i != current_participant_ix) {
-            score += (other_weight_array[peer] + 1) << other_relations_array[peer];
+            penalty = (other_relations_array[peer] * COLOC_PENALTY) + 1;
+            score += penalty * (other_weight_array[peer] + 1) << other_relations_array[peer];
         } else if (other_relations_array[peer] > 0) {
             /* Participants are seated next to each other at some other occasion that must be considered */
-            score += (other_weight_array[peer] + 1) << (other_relations_array[peer] - 1);
+            penalty = ((other_relations_array[peer] - 1) * COLOC_PENALTY) + 1;
+            score += penalty * (other_weight_array[peer] + 1) << (other_relations_array[peer] - 1);
         }
 
     }
@@ -368,7 +376,8 @@ static unsigned long int calculate_conference_score(Conference *conference, int 
     unsigned long int score = 0;
     for(int i=0; i < (conference->weight_count * conference->weight_count); i++) {
         if(relations[i] > 0) {
-            score += (conference->weights[i] + 1) << (relations[i] - 1);
+            int penalty = ((relations[i] - 1) * COLOC_PENALTY) + 1;
+            score += penalty * (conference->weights[i] + 1) << (relations[i] - 1);
         }
     }
 
