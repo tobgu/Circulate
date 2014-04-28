@@ -8,7 +8,7 @@ from xlsm_io import read_conference_data, write_simulation_result
 UPLOAD_FOLDER = 'uploads/'
 RESULT_FOLDER = 'results/'
 ALLOWED_EXTENSIONS = set(['xls', 'xlsm'])
-IS_DEVELOP_MODE = False
+IS_DEVELOP_MODE = True
 
 
 class CustomFlask(Flask):
@@ -50,7 +50,7 @@ def run_simulation_from_json(json_data, simulation_time):
 @app.route('/simulate', methods=['POST'])
 def simulate():
     # TODO: Fix mismatch in conference naming
-    result = run_simulation_from_json(request.json, 1.0)
+    result = run_simulation_from_json(request.json, request.json['simulation_time'])
     return simplejson.dumps({'relations': result['relations'], 'conference': result['conference']['placements']})
 
 

@@ -12,12 +12,17 @@
   <div>
     <div class="logo">Get seated!</div>
     <div class="control-panel">
-        <button class="button occasion-button" ng-click="runSimulation()">Run</button>
-        <button class="button occasion-button" ng-click="getResult()">Download result</button>
-<!--        <button class="button occasion-button">Download locks</button> -->
-        <button class="button occasion-button" ng-click="stepOccasion(-1)"><< {{previousOccasion.name}}</button>
+        <label for="simulation-time" class="occasion-select">Duration</label>
+        <select id="simulation-time" class="occasion-select" ng-model="simulationTime" ng-options="time.name for time in simulationTimes"></select>
+        <label for="colocation-penalty" class="occasion-select">Co-location penalty</label>
+        <select id="colocation-penalty" class="occasion-select" ng-model="colocPenalty" ng-options="p for p in penaltyChoices"></select>
+        <button class="button occasion-button" ng-class="{ 'command-in-progress' : commandInProgress }" ng-disabled="commandInProgress" ng-click="runSimulation()">Optimize!</button>
+        <div class="clear">&nbsp;</div>
+    </div>
+    <div>
+        <a href class="occasion-link" ng-click="stepOccasion(-1)"><< {{previousOccasion.name}}</a>
         <span class="occasion-name">{{currentOccasion.name}}</span>
-        <button class="button occasion-button" ng-click="stepOccasion(1)">{{nextOccasion.name}} >></button>
+        <a href class="occasion-link" ng-click="stepOccasion(1)">{{nextOccasion.name}} >></a>
         <div class="clear">&nbsp;</div>
     </div>
   </div>
@@ -44,8 +49,10 @@
 	</div>
   </div>
   <div class="clear">&nbsp;</div>
+  <a href ng-click="getResult()">Download result</a>
   <div>
-    <table class="relations-table">
+    <h1>Top {{relationsCount}} worst seatings</h1>
+    <table id="hor-minimalist" class="relations-table">
         <thead>
             <tr>
                 <td>Relation</td><td>Count</td><td>Badness</td><td>Tables</td>
@@ -215,7 +222,8 @@
 	app.controller('DragDropCtrl', function($scope,  $http, $document) {
 	  $scope.conference = conference;
 	  $scope.participant_names = participant_names;
-	  $scope.relations = []; // relations;
+	  $scope.relationsCount = 50;
+	  $scope.relations = relations.slice(0, $scope.relationsCount);
 	  $scope.currentOccasionIx = 0;
 
 	  $scope.stepOccasion = function(direction) {
@@ -225,13 +233,29 @@
 	     $scope.nextOccasion = $scope.conference[($scope.currentOccasionIx + 1) % $scope.conference.length];
 	  };
 
+      $scope.simulationTimes = [
+        {name:'1 s', value: 1.0},
+        {name:'15 s', value: 15.0},
+        {name:'1 min', value: 60.0},
+        {name:'10 min', value: 600.0},
+        {name:'1 h', value: 3600.0}
+        ];
+      $scope.simulationTime = $scope.simulationTimes[0];
+
+      $scope.penaltyChoices = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 50];
+      $scope.colocPenalty = $scope.penaltyChoices[0];
+
+      $scope.commandInProgress = false;
+
 	  $scope.stepOccasion(0);
 
 	  $scope.runSimulation = function() {
+	     $scope.commandInProgress = true;
 	     $http({method: 'POST', url: '/simulate',
 	            data: {participant_names: $scope.participant_names,
 	                   conference: $scope.conference,
-	                   weight_matrix: weight_matrix },
+	                   weight_matrix: weight_matrix,
+	                   simulation_time: $scope.simulationTime['value']},
 	            headers: {"Content-Type": "application/json"}}).
             success(function(data, status, headers, config) {
                 console.log("Received response");
@@ -241,6 +265,7 @@
                 for(var i = 0; i < $scope.conference.length; i++) {
                     $scope.conference[i] = data['conference'][i];
                 }
+                $scope.relations = data['relations'].slice(0, $scope.relationsCount);
                 $scope.stepOccasion(0);
 
 //                $scope.relations = data['relations'];
@@ -248,6 +273,9 @@
             }).
             error(function(data, status, headers, config) {
                 console.log("Error calling simulate!")
+            }).
+            finally(function(data, status, headers, config) {
+                $scope.commandInProgress = false;
             });
 	  };
 
