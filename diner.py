@@ -1,7 +1,6 @@
 import multiprocessing
 from time import time
 import itertools
-from xlsm_io import read_conference_data, write_seating, add_global_simulation_info
 from dinerc import calc_conference
 
 CLIMB_MODE_ALWAYS = 1

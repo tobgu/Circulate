@@ -3,9 +3,40 @@ from openpyxl.cell import get_column_letter
 #from time import time
 
 
-def write_seating(conference, filename='seating_out.xls'):
+def write_simulation_result(result, filename='seating_out.xls'):
     wb = Workbook()
     ws = wb.active
+    add_seatings(result['conference'], ws)
+    add_simulation_statistics(result, wb)
+    wb.save(filename=filename)
+
+
+def add_simulation_statistics(result, wb):
+    ws = wb.create_sheet()
+
+    ws.title = "Statistics"
+
+    set_at_row(ws, 1, "Simulation score", result['score'])
+    set_at_row(ws, 2, "Simulated moves", result['total_tests_count'])
+    set_at_row(ws, 3, "Starting points", result['total_iteration_count'])
+    set_at_row(ws, 4, "Simulation duration", result['duration'])
+
+    ws.cell('A8').value = "Relation"
+    ws.cell('B8').value = "At same table"
+    ws.cell('C8').value = "Badness"
+    row = 9
+    for (p1, p2, count, badness) in result['relations']:
+        set_triplet_at_row(ws, row, '%s - %s' % (result['conference']['staff_names'][p1],
+                                                 result['conference']['staff_names'][p2]),
+                                                 count, badness)
+        row += 1
+
+    ws.column_dimensions['A'].width = 30.0
+    ws.column_dimensions['B'].width = 30.0
+    ws.column_dimensions['C'].width = 30.0
+
+
+def add_seatings(conference, ws):
     ws.title = "Seatings"
 
     for col_idx,  occasion in enumerate(conference['placements']):
@@ -25,8 +56,6 @@ def write_seating(conference, filename='seating_out.xls'):
 
         ws.column_dimensions[col].width = 20.0
 
-    wb.save(filename=filename)
-
 
 def write_score(score, filename):
     wb = Workbook()
@@ -35,6 +64,7 @@ def write_score(score, filename):
     ws.cell('A1').value = 'Score: %s' % score
     ws.column_dimensions['A'].width = 100.0
     wb.save(filename=filename)
+
 
 def set_at_row(ws, row, name, value):
     ws.cell('A%s' % row).value = name
@@ -46,32 +76,6 @@ def set_triplet_at_row(ws, row, a, b, c):
     ws.cell('A%s' % row).value = a
     ws.cell('B%s' % row).value = b
     ws.cell('C%s' % row).value = c
-
-
-def add_global_simulation_info(score, tests_count, scramble_count, duration, relation_list, filename, conference):
-    wb = load_workbook(filename=filename)
-    ws = wb.create_sheet()
-    ws.title = "Statistics"
-
-    set_at_row(ws, 1, "Simulation score", score)
-    set_at_row(ws, 2, "Simulated moves", tests_count)
-    set_at_row(ws, 3, "Starting points", scramble_count)
-    set_at_row(ws, 4, "Simulation duration", duration)
-
-    ws.cell('A8').value = "Relation"
-    ws.cell('B8').value = "At same table"
-    ws.cell('C8').value = "Badness"
-    row = 9
-    for (p1, p2, count, badness) in relation_list:
-        set_triplet_at_row(ws, row, '%s - %s' % (conference['staff_names'][p1], conference['staff_names'][p2]),
-                           count, badness)
-        row += 1
-
-    ws.column_dimensions['A'].width = 30.0
-    ws.column_dimensions['B'].width = 30.0
-    ws.column_dimensions['C'].width = 30.0
-
-    wb.save(filename=filename)
 
 
 def read_conference_data(filename='seating.xlsm'):

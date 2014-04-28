@@ -3,7 +3,7 @@ from flask import Flask, request, url_for, render_template
 import simplejson
 from werkzeug.utils import secure_filename
 from diner import run_simulation, CLIMB_MODE_ALWAYS, seatings_to_guest_list
-from xlsm_io import write_seating, read_conference_data
+from xlsm_io import read_conference_data, write_simulation_result
 
 UPLOAD_FOLDER = 'uploads/'
 RESULT_FOLDER = 'results/'
@@ -57,7 +57,7 @@ def generate_excel():
     result = run_simulation_from_json(request.json, 0.0)
     result_filename = 'test.xls'
     destination = os.path.join(app.config['RESULT_FOLDER'], result_filename)
-    write_seating(result['conference'], filename=destination)
+    write_simulation_result(result, filename=destination)
 
     return simplejson.dumps({'url': url_for('download_file', filename=result_filename)})
 
