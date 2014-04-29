@@ -55,7 +55,7 @@ def generate_excel():
     # Generate excel file and provide link to document.
 
     result = run_simulation_from_json(request.json, 0.0)
-    result_filename = 'test.xls'
+    result_filename = 'result.xls'
     destination = os.path.join(app.config['RESULT_FOLDER'], result_filename)
     write_simulation_result(result, filename=destination)
 
