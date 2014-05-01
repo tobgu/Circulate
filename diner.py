@@ -1,3 +1,4 @@
+from collections import defaultdict
 import multiprocessing
 from time import time
 import itertools
@@ -17,6 +18,24 @@ def add_seatings(conference, participants):
             start += size
 
         conference['placements'].append({'name': name, 'tables': participants_by_table})
+
+
+def add_relation_stat(conference):
+    relations = defaultdict(list)
+    for occasion_ix, occasion in enumerate(conference['placements']):
+        tables = occasion['tables']
+        for table_ix, table in enumerate(tables):
+            # Sort the participants to get the key tuple right and repeatable
+            sorted_table = sorted(table)
+            table_size = len(table)
+            for ix, p1 in enumerate(sorted_table):
+                for p2 in sorted_table[ix+1:]:
+                    relations[(p1['id'], p2['id'])].append((occasion_ix, table_ix, table_size))
+
+    max_weight = max([max(row) for row in conference['weight_matrix']])
+    colocation_weight = max_weight + 1
+    order_fn = lambda x: colocation_weight * len(x[1]) + conference['weight_matrix'][x[0][0]][x[0][1]]
+    conference['relation_stats'] = sorted(relations.iteritems(), key=order_fn, reverse=True)
 
 
 def guest_properties(guests_per_occasion, property_name):
@@ -96,6 +115,10 @@ def run_simulation(conference, simulation_time, climb_mode):
         do_run_global_simulation(climb_mode, conference, simulation_time)
 
     add_seatings(conference, best_result['participants'])
+
+    print "Before: %s" % time()
+    add_relation_stat(conference)
+    print "After: %s" % time()
 
     return {'conference': conference,
             'score': best_result['score'],

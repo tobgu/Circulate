@@ -232,7 +232,7 @@
 	font-size: 12px;
 	background: #fff;
 	margin: 45px;
-	width: 480px;
+	width: 640px;
 	border-collapse: collapse;
 	text-align: left;
    }
@@ -251,10 +251,6 @@
        padding: 6px 8px;
     }
 
-    #hor-minimalist tbody tr:hover td {
-        color: #009;
-    }
-
     h1 {
         margin: 1em 0 0.5em 0;
         font-weight: 600;
@@ -266,4 +262,9 @@
         color: #355681;
         text-transform: uppercase;
         border-bottom: 1px solid rgba(53,86,129, 0.3);
+    }
+
+    .colocation-occasion:hover {
+        color: #009;
+        cursor: pointer;
     }

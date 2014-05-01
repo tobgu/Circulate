@@ -31,7 +31,7 @@
   </div>
   <div class="occasion">
     <div class="table-div" ng-repeat="table in currentOccasion.tables">
-		<table  class="table-table">
+		<table class="table-table">
 			<thead>
 				<tr>
 					<td>Table {{$index + 1}}</td>
@@ -77,13 +77,18 @@
         </thead>
         <tbody>
             <tr ng-repeat="relation in relations">
-                <td>{{ participant_names[relation[0]] }} - {{ participant_names[relation[1]] }}</td>
-                <td>{{ relation[2] }}</td>
-                <td>{{ relation[3] }}</td>
-                <td>-</td>
+                <td>{{ participant_names[relation[0][0]] }} - {{ participant_names[relation[0][1]] }}</td>
+                <td>{{ relation[1].length }}</td>
+                <td>{{ weightMatrix[relation[0][0]][relation[0][1]] }}</td>
+                <td>
+                    <div class="colocation-occasion" ng-repeat="coloc in relation[1]" ng-click="setOccasion(coloc[0])">
+                        {{ conference[coloc[0]].name }}, table {{ coloc[1] + 1 }} (size {{ coloc[2] }})
+                    </div>
+                </td>
             </tr>
         </tbody>
     </table>
+    <a class="occasion-link" href ng-click="expandStat()">More...</a>
   </div>
 </body>
 
@@ -234,19 +239,26 @@
     var conference = %%conference|safe%%;
     var relations = %%relations|safe%%;
     var weight_matrix = %%weight_matrix|safe%%;
+    var relation_stat = %%relation_stat|safe%%;
 
 	app.controller('DragDropCtrl', function($scope,  $http, $document) {
 	  $scope.conference = conference;
 	  $scope.participant_names = participant_names;
 	  $scope.relationsCount = 100;
-	  updateRelationData(relations);
+	  updateRelationData(relations, relation_stat);
 	  $scope.currentOccasionIx = 0;
+	  $scope.weightMatrix = weight_matrix;
 
-	  $scope.stepOccasion = function(direction) {
-	     $scope.currentOccasionIx = ($scope.currentOccasionIx + direction + $scope.conference.length) % $scope.conference.length;
+      $scope.setOccasion = function(ix) {
+	     $scope.currentOccasionIx = ix;
          $scope.currentOccasion = $scope.conference[$scope.currentOccasionIx];
 	     $scope.previousOccasion = $scope.conference[($scope.currentOccasionIx - 1 + $scope.conference.length) % $scope.conference.length];
 	     $scope.nextOccasion = $scope.conference[($scope.currentOccasionIx + 1) % $scope.conference.length];
+      };
+
+	  $scope.stepOccasion = function(direction) {
+	     var occasionIx = ($scope.currentOccasionIx + direction + $scope.conference.length) % $scope.conference.length;
+         $scope.setOccasion(occasionIx);
 	  };
 
       $scope.simulationTimes = [
@@ -266,8 +278,9 @@
 
 	  $scope.stepOccasion(0);
 
-      function updateRelationData(allRelations) {
-    	  $scope.relations = allRelations.slice(0, $scope.relationsCount);
+      function updateRelationData(allRelations, relationStat) {
+          $scope.allRelationStat = relationStat;
+    	  $scope.relations = $scope.allRelationStat.slice(0, $scope.relationsCount);
     	  $scope.relationData = {}
     	  for(var i=0; i < allRelations.length; i++) {
     	    var relationCount = allRelations[i][2];
@@ -277,7 +290,12 @@
     	        $scope.relationData[relationCount] = 1;
     	    }
     	  }
-      }
+      };
+
+      $scope.expandStat = function() {
+          $scope.relationsCount += 100;
+    	  $scope.relations = $scope.allRelationStat.slice(0, $scope.relationsCount);
+      };
 
 	  $scope.runSimulation = function() {
 	     $scope.commandInProgress = true;
@@ -296,7 +314,7 @@
                 for(var i = 0; i < $scope.conference.length; i++) {
                     $scope.conference[i] = data['conference'][i];
                 }
-                updateRelationData(data['relations']);
+                updateRelationData(data['relations'], data['relation_stats']);
                 $scope.stepOccasion(0);
 
 //                $scope.relations = data['relations'];

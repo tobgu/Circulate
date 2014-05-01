@@ -8,7 +8,7 @@ from xlsm_io import read_conference_data, write_simulation_result
 UPLOAD_FOLDER = 'uploads/'
 RESULT_FOLDER = 'results/'
 ALLOWED_EXTENSIONS = set(['xls', 'xlsm'])
-IS_DEVELOP_MODE = False
+IS_DEVELOP_MODE = True
 
 
 class CustomFlask(Flask):
@@ -47,7 +47,9 @@ def run_simulation_from_json(json_data, simulation_time):
 def simulate():
     # TODO: Fix mismatch in conference naming
     result = run_simulation_from_json(request.json, request.json['simulation_time'])
-    return simplejson.dumps({'relations': result['relations'], 'conference': result['conference']['placements']})
+    return simplejson.dumps({'relations': result['relations'],
+                             'conference': result['conference']['placements'],
+                             'relation_stats': result['conference']['relation_stats']})
 
 
 @app.route('/result/excel', methods=['POST'])
@@ -81,6 +83,7 @@ def upload_file():
                     staff_names_json = f.readline()
                     relations_json = f.readline()
                     weight_matrix_json = f.readline()
+                    relation_stats_json = f.readline()
             else:
                 # Load initial data into system by running a 0 second simulation
                 conference = read_conference_data(filename=full_filename)
@@ -90,16 +93,22 @@ def upload_file():
                 staff_names_json = simplejson.dumps(data['conference']['staff_names'])
                 relations_json = simplejson.dumps(data['relations'])
                 weight_matrix_json = simplejson.dumps(data['conference']['weight_matrix'])
+                relation_stats_json = simplejson.dumps(data['conference']['relation_stats'])
 
                 if IS_DEVELOP_MODE:
                     with open("cache.json", mode='w') as f:
-                        f.writelines([conference_json + '\n', staff_names_json + '\n', relations_json + '\n', weight_matrix_json])
+                        f.writelines([conference_json + '\n',
+                                      staff_names_json + '\n',
+                                      relations_json + '\n',
+                                      weight_matrix_json + '\n',
+                                      relation_stats_json])
 
             return render_template('show_participants.html',
                                    conference=conference_json,
                                    staff_names=staff_names_json,
                                    relations=relations_json,
-                                   weight_matrix=weight_matrix_json)
+                                   weight_matrix=weight_matrix_json,
+                                   relation_stat=relation_stats_json)
 
     return '''
     <!doctype html>
