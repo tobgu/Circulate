@@ -41,7 +41,7 @@
 					<td colspan="2">
                         <div switchable conference="conference" drop="handleDrop" participant-ix="$index" table-ix="$parent.$index"
                              occasion-ix="currentOccasionIx" class="participant" ng-class="{ 'fix' : participant.fix }"
-                             update-grouping="updateGrouping(occasionIx, tableIx)">
+                             update-grouping-for-table="updateGroupingForTable(occasionIx, tableIx)">
                             {{ participant_names[participant.id] }}
                         </div>
                     </td>
@@ -107,7 +107,7 @@
 		  occasionIx: '=',
 		  tableIx: '=',
 		  participantIx: '=',
-		  updateGrouping: '&'
+		  updateGroupingForTable: '&'
 		},
 		link: function(scope, element) {
 		  // Get the native object
@@ -178,8 +178,8 @@
                   console.log("Dropping");
 				  scope.conference[scope.conference.dragSourceOccasionIx].tables[scope.conference.dragSourceTableIx][scope.conference.dragSourceParticipantIx] = targetParticipant;
 				  scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx] = sourceParticipant;
-			      scope.updateGrouping({occasionIx: scope.conference.dragSourceOccasionIx, tableIx: scope.conference.dragSourceTableIx});
-			      scope.updateGrouping({occasionIx: scope.occasionIx, tableIx: scope.tableIx});
+			      scope.updateGroupingForTable({occasionIx: scope.conference.dragSourceOccasionIx, tableIx: scope.conference.dragSourceTableIx});
+			      scope.updateGroupingForTable({occasionIx: scope.occasionIx, tableIx: scope.tableIx});
 			  });
 			  
 			  return false;
@@ -252,30 +252,8 @@
 	  $scope.relationsCount = 100;
 	  $scope.groupNames = group_names;
 	  updateRelationData(relations, relation_stat);
-	  updateGroupingData();
 	  $scope.currentOccasionIx = 0;
 	  $scope.weightMatrix = weight_matrix;
-
-      function updateGroupingData() {
-         for(var i=0; i < $scope.conference.length; i++) {
-            var occasionGroupingData = [];
-            for(var j=0; j < $scope.conference[i]['tables'].length; j++) {
-               var tableGroupingData = []
-               for(var p=0; p < $scope.conference[i]['tables'][j].length; p++) {
-                   var groupMemberships = group_participation[$scope.conference[i]['tables'][j][p].id];
-                   for(var g=0; g < groupMemberships.length; g++) {
-                       if(tableGroupingData[groupMemberships[g]] !== undefined) {
-                          tableGroupingData[groupMemberships[g]]++;
-                       } else {
-                          tableGroupingData[groupMemberships[g]] = 1;
-                       }
-                    }
-               }
-               occasionGroupingData[j] = tableGroupingData;
-            }
-            $scope.conference[i].groupingData = occasionGroupingData;
-         }
-      };
 
       $scope.setOccasion = function(ix) {
 	     $scope.currentOccasionIx = ix;
@@ -373,7 +351,7 @@
             });
 	  };
 
-	  $scope.updateGrouping = function(occasionIx, tableIx) {
+	  $scope.updateGroupingForTable = function(occasionIx, tableIx) {
 	      var tableGroupingData = [];
 	      $scope.conference[occasionIx].groupingData[tableIx] = tableGroupingData;
 	      var table = $scope.conference[occasionIx]['tables'][tableIx];
@@ -389,6 +367,16 @@
            }
 	  };
 
+      function updateGroupingData() {
+         for(var i=0; i < $scope.conference.length; i++) {
+            $scope.conference[i].groupingData = []
+            for(var j=0; j < $scope.conference[i]['tables'].length; j++) {
+               $scope.updateGroupingForTable(i, j);
+            }
+         }
+      };
+
+      updateGroupingData();
 	});
   </script>
 
