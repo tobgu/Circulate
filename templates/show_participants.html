@@ -5,7 +5,6 @@
   <meta charset="UTF-8">
   <title>Get seated!</title>
   <link rel="stylesheet" type="text/css" href="/static/styles.css">
-
 </head>
 
 <body class="seating-app" ng-app="dragDrop" ng-controller="DragDropCtrl" ng-cloak>
@@ -39,14 +38,18 @@
 			</thead>
 			<tbody>
 				<tr ng-repeat="participant in table">
-					<td>
+					<td colspan="2">
                         <div switchable conference="conference" drop="handleDrop" participant-ix="$index" table-ix="$parent.$index"
-                             occasion-ix="currentOccasionIx" class="participant" ng-class="{ 'fix' : participant.fix }">
+                             occasion-ix="currentOccasionIx" class="participant" ng-class="{ 'fix' : participant.fix }"
+                             update-grouping="updateGrouping(occasionIx, tableIx)">
                             {{ participant_names[participant.id] }}
                         </div>
                     </td>
-				<!-- conference[occasionIx].tables[tableIx][participantIx].fix == true -->
-				</tr>
+                </tr>
+                <tr></tr>
+                <tr class="group" ng-repeat="count in currentOccasion.groupingData[$index] track by $index" ng-if="count !== undefined">
+                    <td>{{ groupNames[$index] }}</td><td>{{ count }}</td>
+                </tr>
 			</tbody>
 		</table>
 	</div>
@@ -100,11 +103,11 @@
 	app.directive('switchable', function() {
 	  return {
 		scope: {
-		  lock: '&',
-		  conference: '=', 
+		  conference: '=',
 		  occasionIx: '=',
 		  tableIx: '=',
-		  participantIx: '='
+		  participantIx: '=',
+		  updateGrouping: '&'
 		},
 		link: function(scope, element) {
 		  // Get the native object
@@ -173,8 +176,10 @@
 			  scope.$apply(function(scope) {
 				  // Switch the data rather than the actual DOM elements
                   console.log("Dropping");
-				  scope.conference[scope.conference.dragSourceOccasionIx].tables[scope.conference.dragSourceTableIx][scope.conference.dragSourceParticipantIx] = targetParticipant
-				  scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx] = sourceParticipant
+				  scope.conference[scope.conference.dragSourceOccasionIx].tables[scope.conference.dragSourceTableIx][scope.conference.dragSourceParticipantIx] = targetParticipant;
+				  scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx] = sourceParticipant;
+			      scope.updateGrouping({occasionIx: scope.conference.dragSourceOccasionIx, tableIx: scope.conference.dragSourceTableIx});
+			      scope.updateGrouping({occasionIx: scope.occasionIx, tableIx: scope.tableIx});
 			  });
 			  
 			  return false;
@@ -215,8 +220,6 @@
 			  'click',
 			  function(e) {
 				scope.$apply(function(scope) {
-				  console.log("Clicking!")
-				  console.log(scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx])
 				  scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx].fix = !scope.conference[scope.occasionIx].tables[scope.tableIx][scope.participantIx].fix;
 			    });
     			
@@ -240,14 +243,39 @@
     var relations = %%relations|safe%%;
     var weight_matrix = %%weight_matrix|safe%%;
     var relation_stat = %%relation_stat|safe%%;
+    var group_names = %%group_names|safe%%;
+    var group_participation = %%group_participation|safe%%;
 
 	app.controller('DragDropCtrl', function($scope,  $http, $document) {
 	  $scope.conference = conference;
 	  $scope.participant_names = participant_names;
 	  $scope.relationsCount = 100;
+	  $scope.groupNames = group_names;
 	  updateRelationData(relations, relation_stat);
+	  updateGroupingData();
 	  $scope.currentOccasionIx = 0;
 	  $scope.weightMatrix = weight_matrix;
+
+      function updateGroupingData() {
+         for(var i=0; i < $scope.conference.length; i++) {
+            var occasionGroupingData = [];
+            for(var j=0; j < $scope.conference[i]['tables'].length; j++) {
+               var tableGroupingData = []
+               for(var p=0; p < $scope.conference[i]['tables'][j].length; p++) {
+                   var groupMemberships = group_participation[$scope.conference[i]['tables'][j][p].id];
+                   for(var g=0; g < groupMemberships.length; g++) {
+                       if(tableGroupingData[groupMemberships[g]] !== undefined) {
+                          tableGroupingData[groupMemberships[g]]++;
+                       } else {
+                          tableGroupingData[groupMemberships[g]] = 1;
+                       }
+                    }
+               }
+               occasionGroupingData[j] = tableGroupingData;
+            }
+            $scope.conference[i].groupingData = occasionGroupingData;
+         }
+      };
 
       $scope.setOccasion = function(ix) {
 	     $scope.currentOccasionIx = ix;
@@ -315,9 +343,8 @@
                     $scope.conference[i] = data['conference'][i];
                 }
                 updateRelationData(data['relations'], data['relation_stats']);
+                updateGroupingData();
                 $scope.stepOccasion(0);
-
-//                $scope.relations = data['relations'];
                 console.log("Response processed");
             }).
             error(function(data, status, headers, config) {
@@ -344,7 +371,24 @@
             error(function(data, status, headers, config) {
                 console.log("Error getting file!")
             });
-	  }
+	  };
+
+	  $scope.updateGrouping = function(occasionIx, tableIx) {
+	      var tableGroupingData = [];
+	      $scope.conference[occasionIx].groupingData[tableIx] = tableGroupingData;
+	      var table = $scope.conference[occasionIx]['tables'][tableIx];
+          for(var p=0; p < table.length; p++) {
+               var groupMemberships = group_participation[table[p].id];
+               for(var g=0; g < groupMemberships.length; g++) {
+                   if(tableGroupingData[groupMemberships[g]] !== undefined) {
+                      tableGroupingData[groupMemberships[g]]++;
+                   } else {
+                      tableGroupingData[groupMemberships[g]] = 1;
+                   }
+                }
+           }
+	  };
+
 	});
   </script>
 

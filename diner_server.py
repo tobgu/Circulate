@@ -84,6 +84,8 @@ def upload_file():
                     relations_json = f.readline()
                     weight_matrix_json = f.readline()
                     relation_stats_json = f.readline()
+                    group_names_json = f.readline()
+                    group_participation_json = f.readline()
             else:
                 # Load initial data into system by running a 0 second simulation
                 conference = read_conference_data(filename=full_filename)
@@ -94,6 +96,8 @@ def upload_file():
                 relations_json = simplejson.dumps(data['relations'])
                 weight_matrix_json = simplejson.dumps(data['conference']['weight_matrix'])
                 relation_stats_json = simplejson.dumps(data['conference']['relation_stats'])
+                group_names_json = simplejson.dumps(data['conference']['group_names'])
+                group_participation_json = simplejson.dumps(data['conference']['group_participation'])
 
                 if IS_DEVELOP_MODE:
                     with open("cache.json", mode='w') as f:
@@ -101,14 +105,18 @@ def upload_file():
                                       staff_names_json + '\n',
                                       relations_json + '\n',
                                       weight_matrix_json + '\n',
-                                      relation_stats_json])
+                                      relation_stats_json + '\n',
+                                      group_names_json + '\n',
+                                      group_participation_json])
 
             return render_template('show_participants.html',
                                    conference=conference_json,
                                    staff_names=staff_names_json,
                                    relations=relations_json,
                                    weight_matrix=weight_matrix_json,
-                                   relation_stat=relation_stats_json)
+                                   relation_stat=relation_stats_json,
+                                   group_names=group_names_json,
+                                   group_participation=group_participation_json)
 
     return '''
     <!doctype html>
