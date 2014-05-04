@@ -26,6 +26,7 @@
         <a href class="occasion-link" ng-click="stepOccasion(-1)"><< {{previousOccasion.name}}</a>
         <span class="occasion-name">{{currentOccasion.name}}</span>
         <a href class="occasion-link" ng-click="stepOccasion(1)">{{nextOccasion.name}} >></a>
+        <label class="occasion-link"><input type="checkbox" ng-model="showGroups">Show groups</label>
         <div class="clear">&nbsp;</div>
   </div>
   <div class="occasion">
@@ -47,10 +48,12 @@
                     </td>
                 </tr>
                 <tr></tr>
+			</tbody>
+            <tbody ng-show="showGroups">
                 <tr class="group" ng-repeat="count in currentOccasion.groupingData[$index] track by $index" ng-if="count !== undefined">
                     <td>{{ groupNames[$index] }}</td><td>{{ count }}</td>
                 </tr>
-			</tbody>
+            </tbody>
 		</table>
 	</div>
   </div>
@@ -281,7 +284,7 @@
       $scope.colocPenalty = $scope.penaltyChoices[0];
 
       $scope.commandInProgress = false;
-
+      $scope.showGroups = true;
 	  $scope.stepOccasion(0);
 
       function updateRelationData(allRelations, relationStat) {
