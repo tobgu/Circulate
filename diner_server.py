@@ -4,12 +4,12 @@ from flask import Flask, request, url_for, render_template
 import simplejson
 from werkzeug.utils import secure_filename
 from diner import run_simulation, CLIMB_MODE_ALWAYS, seatings_to_guest_list
-from xlsm_io import read_conference_data, write_simulation_result
+from xlsm_io import read_conference_data, write_simulation_result, InputDataInconsistencyException
 
 UPLOAD_FOLDER = 'uploads/'
 RESULT_FOLDER = 'results/'
 ALLOWED_EXTENSIONS = set(['xls', 'xlsm'])
-IS_DEVELOP_MODE = True
+IS_DEVELOP_MODE = False
 
 
 class CustomFlask(Flask):
@@ -61,6 +61,11 @@ def generate_excel():
     write_simulation_result(result, source=source_filename, destination=destination_filename)
     return simplejson.dumps({'url': url_for('download_file', filename=filename)})
 
+
+def error_page(e):
+    return '<html>%s</html>' % e
+
+
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
@@ -88,7 +93,10 @@ def upload_file():
                     group_participation_json = f.readline()
             else:
                 # Load initial data into system by running a 0 second simulation
-                conference = read_conference_data(filename=full_filename)
+                try:
+                    conference = read_conference_data(filename=full_filename)
+                except InputDataInconsistencyException as e:
+                    return error_page(e)
                 conference['coloc_penalty'] = 0
                 data = run_simulation(conference, simulation_time=0.0, climb_mode=int(climb_mode))
                 conference_json = simplejson.dumps(conference['placements'])

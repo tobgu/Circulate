@@ -152,6 +152,10 @@ def guests_per_seating(wb):
     return seatings
 
 
+class InputDataInconsistencyException(Exception):
+    pass
+
+
 def adjust_seating(conference, wb):
     def is_fix(name):
         return name.strip().startswith(FIX_SIGN)
@@ -166,9 +170,15 @@ def adjust_seating(conference, wb):
         return
 
     name_to_id = {name: id for id, name in enumerate(conference['staff_names'])}
-    new_seatings = [[{'id': name_to_id[strip_fix_sign(row.value)], 'fix': is_fix(row.value)}
-                     for row in col if row.value and not row.style.font.bold]
-                    for col in seatings.columns]
+    try:
+        new_seatings = [[{'id': name_to_id[strip_fix_sign(row.value)], 'fix': is_fix(row.value)}
+                         for row in col if row.value and not row.style.font.bold]
+                        for col in seatings.columns]
+    except KeyError as e:
+        raise InputDataInconsistencyException(u'Unknown participant %s in previous results' % e)
 
-    # TODO: Some input sanity check with good error messages
+    for ix, (old, new) in enumerate(zip(conference['guests'], new_seatings)):
+        if set(p['id'] for p in old) != set(p['id'] for p in new):
+            raise InputDataInconsistencyException(u'Inconsistency in number of participants for occasion %s' % conference['seating_names'][ix])
+
     conference['guests'] = new_seatings
