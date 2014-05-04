@@ -1,4 +1,5 @@
 import os
+import random
 from flask import Flask, request, url_for, render_template
 import simplejson
 from werkzeug.utils import secure_filename
@@ -31,8 +32,7 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
-# TODO
-# - Make conflict listing better
+
 def run_simulation_from_json(json_data, simulation_time):
     guests, table_sizes, seating_names = seatings_to_guest_list(json_data['conference'])
     conference = {'weight_matrix': json_data['weight_matrix'], 'guests': guests,
@@ -54,14 +54,12 @@ def simulate():
 
 @app.route('/result/excel', methods=['POST'])
 def generate_excel():
-    # Generate excel file and provide link to document.
-
     result = run_simulation_from_json(request.json, 0.0)
-    result_filename = 'result.xls'
-    destination = os.path.join(app.config['RESULT_FOLDER'], result_filename)
-    write_simulation_result(result, filename=destination)
-
-    return simplejson.dumps({'url': url_for('download_file', filename=result_filename)})
+    filename = request.json['filename']
+    source_filename = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    destination_filename = os.path.join(app.config['RESULT_FOLDER'], filename)
+    write_simulation_result(result, source=source_filename, destination=destination_filename)
+    return simplejson.dumps({'url': url_for('download_file', filename=filename)})
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
@@ -72,11 +70,13 @@ def upload_file():
         climb_mode = request.form['climb_mode']
 
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
+            # The results file will be a copy of the submitted file with results added
+            filename = "%s_%s" % (random.randint(0, 1000000),  secure_filename(file.filename))
             full_filename = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(full_filename)
 
-            # Solution to avoid having to rerun the simulation all the time
+            # Solution to avoid having to rerun the simulation and excel parsing all the time
+            # during development
             if os.path.isfile("cache.json") and IS_DEVELOP_MODE:
                 with open("cache.json", mode='r') as f:
                     conference_json = f.readline()
@@ -116,7 +116,8 @@ def upload_file():
                                    weight_matrix=weight_matrix_json,
                                    relation_stat=relation_stats_json,
                                    group_names=group_names_json,
-                                   group_participation=group_participation_json)
+                                   group_participation=group_participation_json,
+                                   filename=filename)
 
     return '''
     <!doctype html>

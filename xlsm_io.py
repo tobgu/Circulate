@@ -1,21 +1,21 @@
 from openpyxl import load_workbook, Workbook
 from openpyxl.cell import get_column_letter
-#from time import time
+
+FIX_SIGN = '*'
 
 
-def write_simulation_result(result, filename='seating_out.xls'):
-    wb = Workbook()
-    ws = wb.active
-    add_seatings(result['conference'], ws)
-    add_table_by_participants(result['conference'], wb)
+def write_simulation_result(result, source, destination):
+    wb = load_workbook(source)
     add_simulation_statistics(result, wb)
-    wb.save(filename=filename)
+    add_table_by_participants(result['conference'], wb)
+    add_seatings(result['conference'], wb)
+    wb.save(filename=destination)
 
 
 def add_simulation_statistics(result, wb):
+    delete_sheet(wb, "Simulation_Statistics")
     ws = wb.create_sheet()
-
-    ws.title = "Statistics"
+    ws.title = "Simulation_Statistics"
 
     set_at_row(ws, 1, "Simulation score", result['score'])
 #    set_at_row(ws, 2, "Simulated moves", result['total_tests_count'])
@@ -46,8 +46,19 @@ def straight_table_list(staff_names, tables):
     return sorted(participants, key=lambda x: x[0])
 
 
-def add_seatings(conference, ws):
-    ws.title = "Seatings"
+def delete_sheet(wb, name):
+    try:
+        ws = wb[name]
+        wb.remove_sheet(ws)
+    except KeyError:
+        pass
+
+
+def add_seatings(conference, wb):
+    delete_sheet(wb, "Seating_Results")
+
+    ws = wb.create_sheet(0)
+    ws.title = "Seating_Results"
 
     for col_idx, occasion in enumerate(conference['placements']):
         name = occasion['name']
@@ -60,16 +71,18 @@ def add_seatings(conference, ws):
             row += 2
             ws.cell('%s%s' % (col, row)).value = "Table %s" % (i+1)
             ws.cell('%s%s' % (col, row)).style.font.bold = True
-            for name in sorted([conference['staff_names'][p['id']] for p in table]):
+            for name, fix in sorted([(conference['staff_names'][p['id']], p['fix']) for p in table]):
                 row += 1
-                ws.cell('%s%s' % (col, row)).value = name
+                value = "%s%s" % (FIX_SIGN if fix else '', name)
+                ws.cell('%s%s' % (col, row)).value = value
 
         ws.column_dimensions[col].width = 20.0
 
 
 def add_table_by_participants(conference, wb):
-    ws = wb.create_sheet()
-    ws.title = "Participants"
+    delete_sheet(wb, "Participant_Results")
+    ws = wb.create_sheet(0)
+    ws.title = "Participant_Results"
 
     col_ix = 1
     for occasion in conference['placements']:
@@ -90,14 +103,6 @@ def add_table_by_participants(conference, wb):
         ws.column_dimensions[col_table].width = 5
         col_ix += 3
 
-def write_score(score, filename):
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Seatings"
-    ws.cell('A1').value = 'Score: %s' % score
-    ws.column_dimensions['A'].width = 100.0
-    wb.save(filename=filename)
-
 
 def set_at_row(ws, row, name, value):
     ws.cell('A%s' % row).value = name
@@ -117,6 +122,7 @@ def read_conference_data(filename='seating.xlsm'):
     conference['staff_names'], conference['weight_matrix'], conference['group_names'], conference['group_participation'] = staff_info(wb)
     conference['seating_names'], conference['table_sizes'] = tables_sizes_per_seating(wb)
     conference['guests'] = guests_per_seating(wb)
+    adjust_seating(conference, wb)
     return conference
 
 
@@ -131,7 +137,7 @@ def staff_info(wb):
     staff = wb['Staff']
     group_names = [c.value for c in staff.rows[0][1:]]
     group_weights = [c.value for c in staff.rows[1][1:]]
-    participant_names = [r[0].value for r in staff.rows[2:]]
+    participant_names = [r[0].value.strip() for r in staff.rows[2:]]
     group_participation_weights = [[int(c.value) * group_weights[i] if c.value else 0 for i, c in enumerate(r[1:])] for r in staff.rows[2:]]
     group_participation = [[i for i, c in enumerate(r[1:]) if c.value is not None] for r in staff.rows[2:]]
     weight_matrix = [[sum(gj * gi for gj, gi in zip(group_participation_weights[j], group_participation_weights[i]))
@@ -144,3 +150,25 @@ def guests_per_seating(wb):
     guests = wb['Guests']
     seatings = [[{'id': i, 'fix': False} for i, r in enumerate(c[2:]) if r.value] for c in guests.columns[1:]]
     return seatings
+
+
+def adjust_seating(conference, wb):
+    def is_fix(name):
+        return name.strip().startswith(FIX_SIGN)
+
+    def strip_fix_sign(name):
+        return name if not name.startswith(FIX_SIGN) else name[1:]
+
+    # Use previous optimization result as a starting point if such exists
+    try:
+        seatings = wb['Seating_Results']
+    except KeyError:
+        return
+
+    name_to_id = {name: id for id, name in enumerate(conference['staff_names'])}
+    new_seatings = [[{'id': name_to_id[strip_fix_sign(row.value)], 'fix': is_fix(row.value)}
+                     for row in col if row.value and not row.style.font.bold]
+                    for col in seatings.columns]
+
+    # TODO: Some input sanity check with good error messages
+    conference['guests'] = new_seatings

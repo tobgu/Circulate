@@ -248,6 +248,7 @@
     var relation_stat = %%relation_stat|safe%%;
     var group_names = %%group_names|safe%%;
     var group_participation = %%group_participation|safe%%;
+    var filename = "%%filename|safe%%";
 
 	app.controller('DragDropCtrl', function($scope,  $http, $document) {
 	  $scope.conference = conference;
@@ -341,7 +342,8 @@
                 data: {participant_names: $scope.participant_names,
                        conference: $scope.conference,
                        weight_matrix: weight_matrix,
-                       coloc_penalty: $scope.colocPenalty},
+                       coloc_penalty: $scope.colocPenalty,
+                       filename: filename},
 	            headers: {"Content-Type": "application/json"}}).
             success(function(data, status, headers, config) {
                 console.log("Received file name ");
