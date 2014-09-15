@@ -60,7 +60,6 @@ static Py_ssize_t create_occasions(PyObject *participants_per_occasion,
     PyObject *outer_participants = PySequence_Fast(participants_per_occasion, "expected a sequence");
     PyObject *outer_fix_indicators = PySequence_Fast(fix_indicators_per_occasion, "expected a sequence");
     PyObject *outer_table_sizes = PySequence_Fast(table_sizes_per_occasion, "expected a sequence");
-
     Py_ssize_t occasion_count = PySequence_Size(participants_per_occasion);
     assert(occasion_count == PySequence_Size(table_sizes_per_occasion));
     *occasions = (Occasion*)malloc(sizeof(Occasion) * occasion_count);
@@ -112,7 +111,6 @@ static Conference* create_conference(PyObject *args) {
     conference->occasion_count = create_occasions(participants_per_occasion, fix_indicators_per_occasion,
                                                   table_sizes_per_occasion, &conference->occasions);
     conference->weight_count = pylistlist_to_array(weights, &conference->weights);
-
     return conference;
 }
 
@@ -360,8 +358,10 @@ Loop over all tables at all occasions
       infinity_guard++;
 
       if (best_diff < 0) {
+/*
           printf("Switching %i - %i, best_diff=%i, best_occasion_ix=%i, best_t1_offset=%i, best_t2_offset=%i\n",
                  best_p1_ix, best_p2_ix, best_diff, best_occasion_ix, best_t1_offset, best_t2_offset);
+*/
           perform_switch(best_p1_ix, best_p2_ix, conference->occasions[best_occasion_ix].participants,
                          best_t1_offset, best_t2_offset, best_t1_size, best_t2_size, relations, conference->weight_count);
           best_diff = 0;
@@ -423,15 +423,12 @@ static PyObject *calc_conference(PyObject *self, PyObject *args) {
     long int tests_count = 0;
     long int scramble_count = 0;
 
-    printf("calc_conference, climb_mode=%i\n", conference->climb_mode);
-
     // Use the current seatings as a starting point to compare any results with
     int *best_relations = create_relation_matrix(conference->weight_count);
     int **best_seatings = allocate_seating_result(conference);
     calculate_relations(conference, best_relations);
     unsigned long int best_score = calculate_conference_score(conference, best_relations);
     copy_participants(best_seatings, conference);
-
 
     double stop_time = get_time() + conference->execution_time;
     while(get_time() < stop_time) {

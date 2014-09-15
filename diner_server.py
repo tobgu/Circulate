@@ -8,7 +8,7 @@ from xlsm_io import read_conference_data, write_simulation_result, InputDataInco
 
 UPLOAD_FOLDER = 'uploads/'
 RESULT_FOLDER = 'results/'
-ALLOWED_EXTENSIONS = set(['xls', 'xlsm'])
+ALLOWED_EXTENSIONS = set(['xlsx', 'xls', 'xlsm'])
 IS_DEVELOP_MODE = False
 
 
@@ -57,9 +57,9 @@ def generate_excel():
     result = run_simulation_from_json(request.json, 0.0)
     filename = request.json['filename']
     source_filename = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    destination_filename = os.path.join(app.config['RESULT_FOLDER'], filename)
+    destination_filename = os.path.join(app.config['RESULT_FOLDER'], filename.replace('.xlsm', '.xls'))
     write_simulation_result(result, source=source_filename, destination=destination_filename)
-    return simplejson.dumps({'url': url_for('download_file', filename=filename)})
+    return simplejson.dumps({'url': url_for('download_file', filename=filename.replace('.xlsm', '.xls'))})
 
 
 def error_page(e):
@@ -69,6 +69,7 @@ def error_page(e):
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
+        print("File received")
         file = request.files['file']
 
         # The magic numbers in the climb mode are coordinated with the C-code
@@ -95,6 +96,7 @@ def upload_file():
                 # Load initial data into system by running a 0 second simulation
                 try:
                     conference = read_conference_data(filename=full_filename)
+                    print("Read conference")
                 except InputDataInconsistencyException as e:
                     return error_page(e)
                 conference['coloc_penalty'] = 0
@@ -117,6 +119,7 @@ def upload_file():
                                       group_names_json + '\n',
                                       group_participation_json])
 
+            print("Rendering response")
             return render_template('show_participants.html',
                                    conference=conference_json,
                                    staff_names=staff_names_json,

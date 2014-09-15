@@ -130,6 +130,7 @@ def tables_sizes_per_seating(wb):
     seatings = wb['Seatings']
     seating_names = [r[0].value for r in seatings.rows[2:] if r[0].value]
     table_sizes = [[c.value for c in r[4:] if c.value] for r in seatings.rows[2:]]
+    table_sizes = [s for s in table_sizes if s]
     return seating_names, table_sizes
 
 

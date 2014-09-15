@@ -41,12 +41,22 @@ def add_relation_stat(conference):
 def guest_properties(guests_per_occasion, property_name):
     return [[g[property_name] for g in occasion] for occasion in guests_per_occasion]
 
+def assert_input_data_correctness(conference, guest_ids):
+    for w in conference['weight_matrix']:
+        assert len(w) == len(conference['weight_matrix']), "Weight matrix"
+
+    assert len(guest_ids) == len(conference['table_sizes']), "Occasion count, tables vs. guest count"
+    for sizes, ids in zip(conference['table_sizes'], guest_ids):
+        assert len(ids) == sum(sizes), "Seats available, table sizes vs. guest count"
+
+
 
 def calc_conference_wrapper(args):
     simulation_time, conference, climb_mode = args
-    guest_ids = guest_properties(conference['guests'], 'id')
+    guest_ids = [ids for ids in guest_properties(conference['guests'], 'id') if ids]
     guest_fix_indicators = [[1 if fixed else 0 for fixed in occasion] for occasion in guest_properties(conference['guests'], 'fix')]
 
+    assert_input_data_correctness(conference, guest_ids)
     score, test_count, scramble_count, participants, relations = calc_conference(simulation_time,
                                                                                  conference['weight_matrix'],
                                                                                  guest_ids,
@@ -100,6 +110,7 @@ def do_run_global_simulation(climb_mode, conference, simulation_time):
     pool = multiprocessing.Pool(processes=pool_size)
     start = time()
     results = pool.map(calc_conference_wrapper, pool_size * [[simulation_time, conference, climb_mode]])
+
     duration = time() - start
     pool.close()
     pool.join()
