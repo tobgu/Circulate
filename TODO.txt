@@ -1,0 +1,18 @@
+- Add techie numbers over number of switch attempts, number of actual
+  swithes and number of scrambled conferences.
+- Update and unify naming to call everything circular
+- Create new example files that are correct and can be checked into
+  github
+- Create a wizard for filling in start data via a web interface (make
+  it possible to use these dialogs to adjust the data)
+- Is there any nicer way to preload the data then to paste it into the
+  html file?
+- Styling, make uniform and make Circulate! the name to use
+- Interaction and presentation, perhaps a tabbed interface with
+  different types of data on the different tabs.
+- Upload to github
+- Make it possible to take table/group size into account when
+  calculating co-location count.
+- Nicer input/error checking of the excel file
+- No need to handle sessions or users, is there? Always send all data
+  back and fourth + single page app.
