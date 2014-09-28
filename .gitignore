@@ -1,5 +1,5 @@
 *.pyc
-*#
+*#*
 *.so
 *~
 build/
@@ -7,3 +7,5 @@ pyrsistent.egg-info/
 dist/
 .idea/
 __pycache__/
+uploads/
+results/
