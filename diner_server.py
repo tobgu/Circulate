@@ -8,6 +8,7 @@ from xlsm_io import read_conference_data, write_simulation_result, InputDataInco
 
 UPLOAD_FOLDER = 'uploads/'
 RESULT_FOLDER = 'results/'
+EXAMPLES_FOLDER = 'examples/'
 ALLOWED_EXTENSIONS = set(['xlsx', 'xls', 'xlsm'])
 IS_DEVELOP_MODE = False
 
@@ -26,6 +27,7 @@ class CustomFlask(Flask):
 app = CustomFlask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['RESULT_FOLDER'] = RESULT_FOLDER
+app.config['EXAMPLES_FOLDER'] = EXAMPLES_FOLDER
 
 
 def allowed_file(filename):
@@ -142,7 +144,7 @@ def upload_file():
         <body>
             <form class="smart-green" action="" method=post enctype=multipart/form-data>
               <h1>Get seated!
-                <span>Select input file and parameters. <a href="/downloads/seating.xlsm">Demo file</a></span>
+                <span>Select input file and parameters. <a href="/examples/example.xlsx">Demo file</a></span>
               </h1>
               <label>
                 <input type=file name=file />
@@ -169,6 +171,10 @@ from flask import send_from_directory
 @app.route('/downloads/<filename>')
 def download_file(filename):
     return send_from_directory(app.config['RESULT_FOLDER'], filename)
+
+@app.route('/examples/<filename>')
+def example(filename):
+    return send_from_directory(app.config['EXAMPLES_FOLDER'], filename)
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=int("8000"), debug=True)
