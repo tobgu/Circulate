@@ -1,6 +1,6 @@
 import os
 import random
-from flask import Flask, request, url_for, render_template
+from flask import Flask, request, url_for
 import simplejson
 from werkzeug.utils import secure_filename
 from diner import run_simulation, CLIMB_MODE_ALWAYS, seatings_to_guest_list
@@ -12,19 +12,7 @@ EXAMPLES_FOLDER = 'examples/'
 ALLOWED_EXTENSIONS = set(['xlsx', 'xls', 'xlsm'])
 IS_DEVELOP_MODE = False
 
-
-class CustomFlask(Flask):
-    jinja_options = Flask.jinja_options.copy()
-    jinja_options.update(dict(
-        block_start_string='<%',
-        block_end_string='%>',
-        variable_start_string='%%',
-        variable_end_string='%%',
-        comment_start_string='<#',
-        comment_end_string='#>',
-    ))
-
-app = CustomFlask(__name__)
+app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['RESULT_FOLDER'] = RESULT_FOLDER
 app.config['EXAMPLES_FOLDER'] = EXAMPLES_FOLDER
@@ -68,105 +56,55 @@ def error_page(e):
     return '<html>%s</html>' % e
 
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/', methods=['GET'])
+def index():
+    return send_from_directory('static/', 'index.html')
+
+
+@app.route('/upload', methods=['POST'])
 def upload_file():
-    if request.method == 'POST':
-        print("File received")
-        file = request.files['file']
+    print("File received")
+    file = request.files['file']
 
-        # The magic numbers in the climb mode are coordinated with the C-code
-        climb_mode = request.form['climb_mode']
+    # The magic numbers in the climb mode are coordinated with the C-code
+    climb_mode = CLIMB_MODE_ALWAYS # request.form['climb_mode']
 
-        if file and allowed_file(file.filename):
-            # The results file will be a copy of the submitted file with results added
-            filename = "%s_%s" % (random.randint(0, 1000000),  secure_filename(file.filename))
-            full_filename = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(full_filename)
+    if file and allowed_file(file.filename):
+        # The results file will be a copy of the submitted file with results added
+        filename = "%s_%s" % (random.randint(0, 1000000),  secure_filename(file.filename))
+        full_filename = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(full_filename)
 
-            # Solution to avoid having to rerun the simulation and excel parsing all the time
-            # during development
-            if os.path.isfile("cache.json") and IS_DEVELOP_MODE:
+        # Solution to avoid having to rerun the simulation and excel parsing all the time
+        # during development
+        if os.path.isfile("cache.json") and IS_DEVELOP_MODE:
+            with open("cache.json", mode='r') as f:
+                response_data = f.readline()
+        else:
+            # Load initial data into system by running a 0 second simulation
+            try:
+                conference = read_conference_data(filename=full_filename)
+                print("Read conference")
+            except InputDataInconsistencyException as e:
+                return error_page(e)
+            conference['coloc_penalty'] = 0
+            data = run_simulation(conference, simulation_time=0.0, climb_mode=int(climb_mode))
+            response_data = simplejson.dumps(dict(conference=conference['placements'],
+                                  participant_names=data['conference']['staff_names'],
+                                  relations=data['relations'],
+                                  weight_matrix=data['conference']['weight_matrix'],
+                                  relation_stats=data['conference']['relation_stats'],
+                                  group_names=data['conference']['group_names'],
+                                  group_participation=data['conference']['group_participation'],
+                                  filename=filename))
+
+            if IS_DEVELOP_MODE:
                 with open("cache.json", mode='r') as f:
-                    conference_json = f.readline()
-                    staff_names_json = f.readline()
-                    relations_json = f.readline()
-                    weight_matrix_json = f.readline()
-                    relation_stats_json = f.readline()
-                    group_names_json = f.readline()
-                    group_participation_json = f.readline()
-            else:
-                # Load initial data into system by running a 0 second simulation
-                try:
-                    conference = read_conference_data(filename=full_filename)
-                    print("Read conference")
-                except InputDataInconsistencyException as e:
-                    return error_page(e)
-                conference['coloc_penalty'] = 0
-                data = run_simulation(conference, simulation_time=0.0, climb_mode=int(climb_mode))
-                conference_json = simplejson.dumps(conference['placements'])
-                staff_names_json = simplejson.dumps(data['conference']['staff_names'])
-                relations_json = simplejson.dumps(data['relations'])
-                weight_matrix_json = simplejson.dumps(data['conference']['weight_matrix'])
-                relation_stats_json = simplejson.dumps(data['conference']['relation_stats'])
-                group_names_json = simplejson.dumps(data['conference']['group_names'])
-                group_participation_json = simplejson.dumps(data['conference']['group_participation'])
+                    f.writelines([response_data])
 
-                if IS_DEVELOP_MODE:
-                    with open("cache.json", mode='w') as f:
-                        f.writelines([conference_json + '\n',
-                                      staff_names_json + '\n',
-                                      relations_json + '\n',
-                                      weight_matrix_json + '\n',
-                                      relation_stats_json + '\n',
-                                      group_names_json + '\n',
-                                      group_participation_json])
-
-            print("Rendering response")
-            return render_template('show_participants.html',
-                                   conference=conference_json,
-                                   staff_names=staff_names_json,
-                                   relations=relations_json,
-                                   weight_matrix=weight_matrix_json,
-                                   relation_stat=relation_stats_json,
-                                   group_names=group_names_json,
-                                   group_participation=group_participation_json,
-                                   filename=filename)
-
-    return '''
-    <!doctype html>
-    <html>
-        <head>
-          <meta charset="UTF-8">
-          <link rel="stylesheet" type="text/css" href="/static/styles.css">
-          <title>Get seated!</title>
-        </head>
-
-        <body>
-            <form class="smart-green" action="" method=post enctype=multipart/form-data>
-              <h1>Get seated!
-                <span>Select input file and parameters. <a href="/examples/example.xlsx">Demo file</a></span>
-              </h1>
-              <label>
-                <input type=file name=file />
-              </label>
-              <label>
-                <span>Hill climb:</span>
-                  <select name="climb_mode">
-                    <option value="1">Always</option>
-                    <option value="2">Never</option>
-                  </select>
-              <label>
-              <label>
-                <span>&nbsp;</span>
-                <input class="button" type=submit value=Run>
-              </label>
-            </form>
-        </body>
-    </html>
-    '''
+        return response_data
 
 from flask import send_from_directory
-
 
 @app.route('/downloads/<filename>')
 def download_file(filename):

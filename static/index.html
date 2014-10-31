@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <link rel="stylesheet" type="text/css" href="/static/styles.css">
+        <title>Get seated!</title>
+    </head>
+
+    <body ng-app="circulateApp"  ng-cloak>
+      <div ng-controller="CirculateCtrl">
+        <div ng-show="!dataLoaded">
+            <form class="smart-green" action="" method=post enctype=multipart/form-data>
+                <h1>Get seated!
+                    <span>Select input file and parameters. <a href="/examples/example.xlsx">Demo file</a></span>
+                </h1>
+                <label>
+                    <input type="file" ng-file-select="onFileSelect($files)">
+                </label>
+            </form>
+        </div>
+        <div class="seating-app" ng-show="dataLoaded">
+            <div>
+                <div class="logo">Circulate!</div>
+                <div class="control-panel">
+                    <label for="simulation-time" class="occasion-select">Duration</label>
+                    <select id="simulation-time" class="occasion-select" ng-model="simulationTime" ng-options="time.name for time in simulationTimes"></select>
+                    <label for="colocation-penalty" class="occasion-select">Co-location penalty</label>
+                    <select id="colocation-penalty" class="occasion-select" ng-model="colocPenalty" ng-options="p for p in penaltyChoices"></select>
+                    <button class="button occasion-button" ng-class="{ 'command-in-progress' : commandInProgress }" ng-disabled="commandInProgress" ng-click="runSimulation()">Optimize!</button>
+                    <a href class="occasion-button" ng-click="getResult()">Download result</a>
+                    <div class="clear">&nbsp;</div>
+                </div>
+            </div>
+
+            <h1>Seatings per occasion</h1>
+            <div>
+                <a href class="occasion-link" ng-click="stepOccasion(-1)"><< {{previousOccasion.name}}</a>
+                <span class="occasion-name">{{currentOccasion.name}}</span>
+                <a href class="occasion-link" ng-click="stepOccasion(1)">{{nextOccasion.name}} >></a>
+                <label class="occasion-link"><input type="checkbox" ng-model="showGroups">Show groups</label>
+                <div class="clear">&nbsp;</div>
+            </div>
+            <div class="occasion">
+                <div class="table-div" ng-repeat="table in currentOccasion.tables">
+                    <table class="table-table">
+                        <thead>
+                            <tr>
+                                <td>Table {{$index + 1}}</td>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ng-repeat="participant in table">
+                                <td colspan="2">
+                                    <div switchable conference="conference" drop="handleDrop" participant-ix="$index" table-ix="$parent.$index"
+                                         occasion-ix="currentOccasionIx" class="participant" ng-class="{ 'fix' : participant.fix }"
+                                         update-grouping-for-table="updateGroupingForTable(occasionIx, tableIx)">
+                                        {{ participantNames[participant.id] }}
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr></tr>
+                        </tbody>
+                        <tbody ng-show="showGroups">
+                            <tr class="group" ng-repeat="count in currentOccasion.groupingData[$index] track by $index" ng-if="count !== undefined">
+                                <td>{{ groupNames[$index] }}</td><td>{{ count }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="clear">&nbsp;</div>
+            <div>
+                <h1>Co-location distribution</h1>
+                <table id="hor-minimalist" class="relations-table">
+                    <thead>
+                        <tr>
+                            <td>Co-location count</td><td>Occasions</td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="(colocCount, count) in relationData">
+                            <td>{{colocCount}}</td>
+                            <td>{{count}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h1>Top {{relationsCount}} worst seatings</h1>
+                <table id="hor-minimalist" class="relations-table">
+                    <thead>
+                        <tr>
+                            <td>Relation</td><td>Count</td><td>Badness</td><td>Tables</td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="relation in relations">
+                            <td>{{ participantNames[relation[0][0]] }} - {{ participantNames[relation[0][1]] }}</td>
+                            <td>{{ relation[1].length }}</td>
+                            <td>{{ weightMatrix[relation[0][0]][relation[0][1]] }}</td>
+                            <td>
+                                <div class="colocation-occasion" ng-repeat="coloc in relation[1]" ng-click="setOccasion(coloc[0])">
+                                    {{ conference[coloc[0]].name }}, table {{ coloc[1] + 1 }} (size {{ coloc[2] }})
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <a class="occasion-link" href ng-click="expandStat()">More...</a>
+            </div>
+          </div>
+        </div>
+    </body>
+    <script src='/static/angular.min.js'></script>
+    <script src='/static/angular-file-upload.js'></script>
+    <script src='/static/circulate.js'></script>
+</html>
