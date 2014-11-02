@@ -1,4 +1,4 @@
-from openpyxl import load_workbook, Workbook
+from openpyxl import load_workbook
 from openpyxl.cell import get_column_letter
 
 FIX_SIGN = '*'
@@ -54,6 +54,10 @@ def delete_sheet(wb, name):
         pass
 
 
+def set_bold(cell):
+    cell.style = cell.style.copy(font=cell.style.font.copy(bold=True))
+
+
 def add_seatings(conference, wb):
     delete_sheet(wb, "Seating_Results")
 
@@ -66,11 +70,11 @@ def add_seatings(conference, wb):
         col = get_column_letter(col_idx+1)
         row = 1
         ws.cell('%s%s' % (col, row)).value = name
-        ws.cell('%s%s' % (col, row)).style.font.bold = True
+        set_bold(ws.cell('%s%s' % (col, row)))
         for i, table in enumerate(tables):
             row += 2
             ws.cell('%s%s' % (col, row)).value = "Table %s" % (i+1)
-            ws.cell('%s%s' % (col, row)).style.font.bold = True
+            set_bold(ws.cell('%s%s' % (col, row)))
             for name, fix in sorted([(conference['staff_names'][p['id']], p['fix']) for p in table]):
                 row += 1
                 value = "%s%s" % (FIX_SIGN if fix else '', name)
@@ -92,7 +96,7 @@ def add_table_by_participants(conference, wb):
         col_table = get_column_letter(col_ix+1)
         row = 1
         ws.cell('%s%s' % (col, row)).value = name
-        ws.cell('%s%s' % (col, row)).style.font.bold = True
+        set_bold(ws.cell('%s%s' % (col, row)))
 
         for participant, table_no in straight_table_list(conference['staff_names'], tables):
             row += 1
@@ -106,7 +110,7 @@ def add_table_by_participants(conference, wb):
 
 def set_at_row(ws, row, name, value):
     ws.cell('A%s' % row).value = name
-    ws.cell('A%s' % row).style.font.bold = True
+    set_bold(ws.cell('A%s' % row))
     ws.cell('B%s' % row).value = value
 
 

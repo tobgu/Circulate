@@ -1,11 +1,9 @@
-- Make single app front
 - Add techie numbers over number of switch attempts, number of actual
   swithes and number of scrambled conferences.
-- Update and unify naming to call everything circular
+- Update and unify naming to call everything circular, also, drop the notion of tables and conference
+  name it something more neutral or make it configurable.
 - Create a wizard for filling in start data via a web interface (make
   it possible to use these dialogs to adjust the data)
-- Is there any nicer way to preload the data then to paste it into the
-  html file?
 - Styling, make uniform and make Circulate! the name to use
 - Interaction and presentation, perhaps a tabbed interface with
   different types of data on the different tabs.
@@ -16,3 +14,6 @@
 - No need to handle sessions or users, is there? Always send all data
   back and fourth + single page app.
 - Create smaller services, excel parsing, optimization, web, more?
+- Testing
+- Try building a front end using react rather than angular
+- Deploy initial version to a cloud somewhere
