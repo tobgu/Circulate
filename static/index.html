@@ -3,14 +3,14 @@
     <head>
         <meta charset="UTF-8">
         <link rel="stylesheet" type="text/css" href="/static/styles.css">
-        <title>Get seated!</title>
+        <title>Circulate!</title>
     </head>
 
     <body ng-app="circulateApp"  ng-cloak>
       <div ng-controller="CirculateCtrl">
         <div ng-show="!dataLoaded">
             <form class="smart-green" action="" method=post enctype=multipart/form-data>
-                <h1>Get seated!
+                <h1>Circulate
                     <span>Select input file and parameters. <a href="/examples/example.xlsx">Demo file</a></span>
                 </h1>
                 <label>
@@ -32,7 +32,7 @@
                 </div>
             </div>
 
-            <h1>Seatings per occasion</h1>
+            <h1>Groups per occasion</h1>
             <div>
                 <a href class="occasion-link" ng-click="stepOccasion(-1)"><< {{previousOccasion.name}}</a>
                 <span class="occasion-name">{{currentOccasion.name}}</span>
@@ -85,7 +85,7 @@
                     </tbody>
                 </table>
 
-                <h1>Top {{relationsCount}} worst seatings</h1>
+                <h1>Top {{relationsCount}} worst co-locations</h1>
                 <table id="hor-minimalist" class="relations-table">
                     <thead>
                         <tr>
