@@ -3,7 +3,7 @@ import random
 from flask import Flask, request, url_for
 import simplejson
 from werkzeug.utils import secure_filename
-from diner import run_simulation, CLIMB_MODE_ALWAYS, seatings_to_guest_list
+#from diner import run_simulation, CLIMB_MODE_ALWAYS, seatings_to_guest_list
 from xlsm_io import read_conference_data, write_simulation_result, InputDataInconsistencyException
 
 UPLOAD_FOLDER = 'uploads/'
