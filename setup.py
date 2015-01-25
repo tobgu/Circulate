@@ -1,9 +1,7 @@
 from distutils.core import setup, Extension
 
 
-optimizer = Extension('dinerc', sources=['dinermodule.c'],
-                    include_dirs=['/home/tobias/Development/python/source275/Python-2.7.5/Include'],
-                    extra_compile_args=['-std=c99'])
+optimizer = Extension('dinerc', sources=['dinermodule.c'], extra_compile_args=['-std=c99'])
 
 setup(name='Circulate',
       version='0.1',

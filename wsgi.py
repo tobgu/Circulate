@@ -13,7 +13,7 @@ except IOError:
 #
 
 from diner_server import app as application
-
+application.config['PROPAGATE_EXCEPTIONS'] = True
 #
 # Below for testing only
 #
