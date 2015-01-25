@@ -7,7 +7,6 @@
 - Styling, make uniform and make Circulate! the name to use
 - Interaction and presentation, perhaps a tabbed interface with
   different types of data on the different tabs.
-- Upload to github
 - Make it possible to take table/group size into account when
   calculating co-location count.
 - Nicer input/error checking of the excel file
@@ -16,4 +15,5 @@
 - Create smaller services, excel parsing, optimization, web, more?
 - Testing
 - Try building a front end using react rather than angular
-- Deploy initial version to a cloud somewhere
+- Add travis configuration and set up autodeploy to openshift.
+  See http://docs.travis-ci.com/user/deployment/openshift/
