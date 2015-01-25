@@ -12,7 +12,7 @@ except IOError:
 # line, it's possible required libraries won't be in your searchable path
 #
 
-from test_server import app as application
+from diner_server import app as application
 application.config['PROPAGATE_EXCEPTIONS'] = True
 #
 # Below for testing only
