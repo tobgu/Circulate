@@ -1,0 +1,3 @@
+#!/bin/sh
+echo Building C extension for optimizer
+python $OPENSHIFT_REPO_DIR/setup.py build install
