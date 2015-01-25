@@ -58,7 +58,8 @@ def error_page(e):
 
 @app.route('/', methods=['GET'])
 def index():
-    return send_from_directory('static/', 'index.html')
+    return "Hello"
+#    return send_from_directory('static/', 'index.html')
 
 
 @app.route('/upload', methods=['POST'])
