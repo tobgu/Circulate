@@ -9,7 +9,7 @@ from xlsm_io import read_conference_data, write_simulation_result, InputDataInco
 UPLOAD_FOLDER = 'uploads/'
 RESULT_FOLDER = 'results/'
 EXAMPLES_FOLDER = 'examples/'
-ALLOWED_EXTENSIONS = set(['xlsx', 'xls', 'xlsm'])
+ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'xlsm'}
 IS_DEVELOP_MODE = False
 
 app = Flask(__name__)
