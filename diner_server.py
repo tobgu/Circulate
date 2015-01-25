@@ -58,7 +58,8 @@ def error_page(e):
 
 @app.route('/', methods=['GET'])
 def index():
-    return "Hello"
+    import os
+    return str(os.getcwd())
 #    return send_from_directory('static/', 'index.html')
 
 
