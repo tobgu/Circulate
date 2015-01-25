@@ -3,12 +3,15 @@ import random
 from flask import Flask, request, url_for
 import simplejson
 from werkzeug.utils import secure_filename
-#from diner import run_simulation, CLIMB_MODE_ALWAYS, seatings_to_guest_list
+from diner import run_simulation, CLIMB_MODE_ALWAYS, seatings_to_guest_list
 from xlsm_io import read_conference_data, write_simulation_result, InputDataInconsistencyException
 
-UPLOAD_FOLDER = 'uploads/'
-RESULT_FOLDER = 'results/'
-EXAMPLES_FOLDER = 'examples/'
+BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+STATIC_FOLDER = os.path.join(BASE_PATH, 'static')
+UPLOAD_FOLDER = os.path.join(BASE_PATH, 'uploads')
+RESULT_FOLDER = os.path.join(BASE_PATH, 'results')
+EXAMPLES_FOLDER = os.path.join(BASE_PATH, 'examples')
+
 ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'xlsm'}
 IS_DEVELOP_MODE = False
 
@@ -58,9 +61,7 @@ def error_page(e):
 
 @app.route('/', methods=['GET'])
 def index():
-    import os
-    return str(os.getcwd())
-#    return send_from_directory('static/', 'index.html')
+    return send_from_directory(STATIC_FOLDER, 'index.html')
 
 
 @app.route('/upload', methods=['POST'])
